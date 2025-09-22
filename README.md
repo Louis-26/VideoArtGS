@@ -29,10 +29,12 @@
         <sup>3</sup>Peking University
     </span>
 
-[Website](https://videoartgs.github.io/) | [Arxiv](https://arxiv.org/abs/2502.19459) | [Data](https://huggingface.co/datasets/YuLiu/VideoArtGS-Dataset)
+[Website](https://videoartgs.github.io/) | [Arxiv](https://arxiv.org/abs/2502.19459) | [Data](https://huggingface.co/datasets/YuLiu/VideoArtGS-Data)
 </div>
 </div>
 
 ![overview](assets/images/overview.png)
 
-We will release the full code after the paper is accepted.
+We've released the VideoArtGS-20 dataset at [huggingface](https://huggingface.co/datasets/YuLiu/VideoArtGS-Data), including video frames, depth and camera poses.
+
+The processed data and the full code will be released after the paper is accepted.
