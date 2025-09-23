@@ -29,7 +29,7 @@
         <sup>3</sup>Peking University
     </span>
 
-[Website](https://videoartgs.github.io/) | [Arxiv](https://arxiv.org/abs/2502.19459) | [Data](https://huggingface.co/datasets/YuLiu/VideoArtGS-Data)
+[Website](https://videoartgs.github.io/) | [Arxiv](https://arxiv.org/abs/2509.17647) | [Data](https://huggingface.co/datasets/YuLiu/VideoArtGS-Data)
 </div>
 </div>
 
