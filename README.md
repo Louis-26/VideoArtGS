@@ -16,6 +16,7 @@
         <a href="https://github.com/Juliagan2004" target="_blank">Chuyue Gan</a><sup>2,3</sup>,</span>
     <span class="author-block">
         <a href="https://github.com/HuayuChen2004" target="_blank">Huayu Chen</a><sup>2,3</sup>,</span>
+    <br>
     <span class="author-block">
         <a href="https://dali-jack.github.io/Junfeng-Ni" target="_blank">Junfeng Ni</a><sup>1,2</sup>,</span>
     <span class="author-block">
