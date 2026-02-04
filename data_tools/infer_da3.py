@@ -40,11 +40,12 @@ if __name__ == "__main__":
             depth_conf = prediction.conf
             threshold = np.quantile(depth_conf, 0.1)
             valid = depth_conf >= threshold
-            depth_conf[~valid] = 0
+            depths = prediction.depth
+            depths[~valid] = 0
 
             da3_results = {
                 'video': prediction.processed_images.transpose(0, 3, 1, 2) / 255, # [T, 3, H, W]
-                'depths': depth_conf, # [T, H, W]
+                'depths': depths, # [T, H, W]
                 'conf': prediction.conf, # [T, H, W]
                 'extrinsics': extrinsics, # [T, 4, 4]
                 'intrinsics': prediction.intrinsics, # [T, 3, 3]
