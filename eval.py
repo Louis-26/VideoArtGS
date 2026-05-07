@@ -52,9 +52,11 @@ def evaluate(args, name, iteration, eval_app=False):
     if os.path.exists(f'{args.source_path}/gt/gt_joint_value.npy') and 'v2a' in args.source_path: # v2a has gt joint value
         gt_joint_value = np.load(f'{args.source_path}/gt/gt_joint_value.npy')
         pred_joint_value = np.load(os.path.join(save_dir, "joint_value.npy"))[-1].squeeze()
-        joint_state_error = np.mean(np.abs(np.abs(np.rad2deg(pred_joint_value)) - np.abs(np.rad2deg(gt_joint_value))))
         if gt_joint_list[0]['joint_type'] == 'p':
-            joint_state_error *= 100 # cm
+            joint_state_error = 100 * np.mean(np.abs(pred_joint_value - gt_joint_value))
+        else:
+            joint_state_error = np.mean(np.abs(np.abs(np.rad2deg(pred_joint_value)) - np.abs(np.rad2deg(gt_joint_value))))
+
         output['joint_state_error'] = [joint_state_error]
 
     for i, d in enumerate(d_list):
