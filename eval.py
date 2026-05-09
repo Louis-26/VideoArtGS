@@ -52,10 +52,18 @@ def evaluate(args, name, iteration, eval_app=False):
     if os.path.exists(f'{args.source_path}/gt/gt_joint_value.npy') and 'v2a' in args.source_path: # v2a has gt joint value
         gt_joint_value = np.load(f'{args.source_path}/gt/gt_joint_value.npy')
         pred_joint_value = np.load(os.path.join(save_dir, "joint_value.npy"))[-1].squeeze()
+        gt_joint_value = gt_joint_value - gt_joint_value[0:1]
+        pred_joint_value = pred_joint_value - pred_joint_value[0:1]
+        if gt_joint_list[0]['joint_type'] == 'r':
+            # normalize to (-pi, pi)
+            gt_joint_value = np.mod(gt_joint_value + np.pi, 2 * np.pi) - np.pi
+            pred_joint_value = np.mod(pred_joint_value + np.pi, 2 * np.pi) - np.pi
+        sign = np.sign(gt_joint_value * pred_joint_value)
+        pred_joint_value = pred_joint_value * sign
         if gt_joint_list[0]['joint_type'] == 'p':
             joint_state_error = 100 * np.mean(np.abs(pred_joint_value - gt_joint_value))
         else:
-            joint_state_error = np.mean(np.abs(np.abs(np.rad2deg(pred_joint_value)) - np.abs(np.rad2deg(gt_joint_value))))
+            joint_state_error = np.mean(np.abs(np.rad2deg(pred_joint_value) - np.rad2deg(gt_joint_value)))
 
         output['joint_state_error'] = [joint_state_error]
 
