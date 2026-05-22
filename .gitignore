@@ -23,3 +23,6 @@ third_party/TAPIP3D/third_party/pointnet_lib/build
 third_party/TAPIP3D/third_party/pointops2/pointops2.egg-info
 third_party/TAPIP3D/third_party/pointops2/build
 third_party/TAPIP3D/third_party/pointops2/dist
+
+
+SLURM_execution/

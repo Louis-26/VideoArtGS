@@ -19,7 +19,7 @@ LIBRARY_PATH=$CONDA_PREFIX/lib:$LIBRARY_PATH python setup.py install
 cd ../../../..
 
 # gslpat
-pip install git+https://github.com/nerfstudio-project/gsplat.git
+pip install git+https://github.com/nerfstudio-project/gsplat.git --no-build-isolation
 
 # simple-knn
 pip install git+https://gitlab.inria.fr/bkerbl/simple-knn.git --no-build-isolation

@@ -22,6 +22,7 @@ def optimize_mesh(obj, decimate_ratio=0.1):
     modifier = obj.modifiers.new(name="Decimate", type='DECIMATE')
     modifier.ratio = decimate_ratio
     modifier.use_collapse_triangulate = True
+    bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True, obdata=True)
     bpy.ops.object.modifier_apply(modifier="Decimate")
     
 
@@ -70,7 +71,8 @@ def convert_ply_to_glb(ply_path):
 
 
 if __name__ == "__main__":
-    data_dir = '/mnt/fillipo/yuliu/wallbreaker/Projects/VideoArtGS/outputs/demo/urdf'
+    # data_dir = '/mnt/fillipo/yuliu/wallbreaker/Projects/VideoArtGS/outputs/demo/urdf'
+    data_dir = os.path.join(os.getcwd(),"outputs/demo/urdf")
     scenes = sorted(os.listdir(data_dir))
 
     for s in scenes:

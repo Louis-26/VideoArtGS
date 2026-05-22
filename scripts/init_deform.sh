@@ -4,7 +4,7 @@ export TORCH_CUDA_ARCH_LIST="8.6"
 dataset=videoartgs
 subset=sapien
 scenes=('100481' '101284' '101287' '101808' '101908' '103015' '103811' '10489' '10655' '168' '25493' '30666' '31249' '45194' '45503' '45612' '47648' '8961' '9016' '1280')
-scenes=('101284')
+# scenes=('101284')
 
 # subset=realscan
 # scenes=('cab1' 'chair_1r' 'mac_1r' 'microwave_ego' 'cab_1r_1p' 'coffeemachine_2r' 'microwave_1r')

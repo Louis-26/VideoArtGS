@@ -122,13 +122,17 @@ def export_urdf_glb(input_dir, output_dir, scene):
         f.write(urdf)
 
 
-dataset = 'artgs'
+# dataset = 'artgs'
+dataset = 'videoartgs'
 output_dir = f'outputs/demo'
 
-subset = 'realscan'
-model_name = 'demo'
+# subset = 'realscan'
+subset = 'sapien'
+# model_name = 'demo'
+model_name = 'final'
 scenes = ['cab1', 'chair_1r', 'coffeemachine_2r', 'microwave_1r', 'cab_1r_1p', 'mac_1r']
-scenes = ['microwave1']
+# scenes = ['microwave1']
+scenes = ['100481']
 
 for s in tqdm(scenes):
     output_scene = os.path.join(output_dir, 'urdf', s)
