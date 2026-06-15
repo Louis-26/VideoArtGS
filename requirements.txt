@@ -33,3 +33,4 @@ huggingface_hub
 python-box[all]~=7.0
 timm
 wandb
+moviepy<2.0

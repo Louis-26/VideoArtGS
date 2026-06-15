@@ -33,6 +33,9 @@ pip install git+https://github.com/nerfstudio-project/gsplat.git --no-build-isol
 
 # simple-knn
 pip install git+https://gitlab.inria.fr/bkerbl/simple-knn.git --no-build-isolation
+
+conda install -c conda-forge ffmpeg -y
+
 ```
 
 # step 2: data preparation
@@ -55,6 +58,9 @@ mv realscan videoartgs/
 mv VideoArtGS-20 videoartgs/sapien
 mkdir sapien
 mv *_joint_*_bg_view_* sapien/
+
+cd "$(git rev-parse --show-toplevel)/data"
+rm -rf *.zip
 ### alternatively
 cd SLURM_execution/SLURM_script
 sbatch data_prepare.sh
@@ -76,6 +82,12 @@ cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
 sbatch train.sh
 ```
 
+## notice
+Do the following switch before running the scripts for `scripts/init_cano.sh`, `scripts/init_deform.sh`, and `scripts/train.sh`:
+- VideoArtGS-20: select `videoartgs` dataset, and comment `v2a` part
+- Video2Articulation-S: select `v2a` dataset, and comment `videoartgs` part
+
+
 # step 4: render and evaluate
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -87,7 +99,8 @@ bash scripts/eval.sh
 alternatively, use SLURM script to run the training
 ```bash
 cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
-sbatch render.sh
+JOB1_ID=$(sbatch --parsable render.sh)
+sbatch --parsable --dependency=afterok:$JOB1_ID eval.sh
 ```
 
 # step 5: visualization

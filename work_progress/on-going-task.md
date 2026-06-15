@@ -1,0 +1,2 @@
+- add parameter to control dataset in scripts/ folder to determine dataset+subset, to avoid three folders
+- finish the total 72 scene training for v2a
