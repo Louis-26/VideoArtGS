@@ -1,4 +1,4 @@
-# Qualitative Results
+# Quantitative Results
 code
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -43,7 +43,7 @@ python experiment_results/results_summary.py --dataset videoartgs --subset sapie
 
 
 
-# Quantitative Results
+# Qualitative Results
 All results have been completed under `outputs/{DATASET}/sapien/{SCENE}/final/train/ours_20000`, where `DATASET` is either `v2a` or `videoartgs`, and `SCENE` is the corresponding scene name, as 
 - `{SCENE}_colored.ply` for colored mesh segmentation results
 - `{SCENE}_video.gif` for reconstructed object gif results

@@ -66,20 +66,33 @@ cd SLURM_execution/SLURM_script
 sbatch data_prepare.sh
 ```
 
+# middle step: preprocess the script
+```bash
+cd "$(git rev-parse --show-toplevel)/data/videoartgs/realscan"
+ls -1 | sed "s/.*/'&'/" | paste -sd " " | sed 's/,/, /g'
+# do the similar for other subset
+```
+
+
 # step 3: train
+select 
+- 1 for `videoartgs_sapien` dataset
+- 2 for `videoartgs_realscan` dataset
+- 3 for `v2a_sapien` dataset
+swap the following `1` with `2` or `3` to select the dataset
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 echo "Running init_cano.sh"
-bash scripts/init_cano.sh
-echo "Running init_deform.sh"
-bash scripts/init_deform.sh
+bash scripts/init_cano.sh 1
+echo "Running init_deform.sh"  
+bash scripts/init_deform.sh 1
 echo "Running train.sh"
-bash scripts/train.sh
+bash scripts/train.sh 1
 ```
 alternatively, use SLURM script to run the training
 ```bash
 cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
-sbatch train.sh
+sbatch train.sh 1
 ```
 
 ## notice
@@ -92,15 +105,15 @@ Do the following switch before running the scripts for `scripts/init_cano.sh`, `
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 echo "Running render.sh"
-bash scripts/render.sh
+bash scripts/render.sh 1
 echo "Running eval.sh"
-bash scripts/eval.sh
+bash scripts/eval.sh 1
 ```
 alternatively, use SLURM script to run the training
 ```bash
 cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
-JOB1_ID=$(sbatch --parsable render.sh)
-sbatch --parsable --dependency=afterok:$JOB1_ID eval.sh
+JOB1_ID=$(sbatch --parsable render.sh 1)
+sbatch --parsable --dependency=afterok:$JOB1_ID eval.sh 1
 ```
 
 # step 5: visualization

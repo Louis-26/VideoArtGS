@@ -13,6 +13,7 @@ import os
 import cv2
 import glob
 import torch
+import json
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
@@ -35,7 +36,14 @@ def evaluate(args, name, iteration, eval_app=False):
     gt_path = os.path.join(args.source_path, "gt")
 
     pred_joint_list = load_joint_infos(os.path.join(save_dir, 'joint_info.json'))
-    gt_joint_list = read_gt(f'{args.source_path}/gt/mobility_v2.json')
+    
+    if getattr(args, 'subset', '') == 'realscan':
+        with open(f'{args.source_path}/joint_infos.json', 'r') as f:
+            raw_gt_list = json.load(f)
+            gt_joint_list = [j for j in raw_gt_list if j.get('joint_type') != 's']
+    else:
+        gt_joint_list = read_gt(f'{args.source_path}/gt/mobility_v2.json')
+        
     num_d_joints = len(gt_joint_list)
 
     s, d_list, w, perm = eval_CD(gt_path, mesh_path, num_d_joints, n_trials=3)
