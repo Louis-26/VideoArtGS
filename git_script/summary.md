@@ -64,6 +64,9 @@ We usually run this script after running `git_lfs_remove.sh` to completely remov
 ## search all git repos under a path
 `gitrepo_search.sh`
 
+## visualize all files with size in a tree structure 
+`git_file_tree.sh`
+
 # linux machine change permission
 
 in linux, add `chmod -R +x git_script` for a folder, or `chmod +x git_script/git_push.sh` for a single file, to make it

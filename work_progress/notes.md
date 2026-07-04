@@ -16,3 +16,10 @@
 software
 - 3D blender
 - Issac Sim
+
+# reference
+- ⭐[Particulate: Feed-Forward 3D Object Articulation](https://ruiningli.com/particulate)
+- [Instruct-Particulate: Scaling Feed-Forward 3D Object Articulation with Kinematic Control](https://instruct-particulate.github.io/)
+- [PhysForge: Generating Physics-Grounded 3D Assets for Interactive Virtual World](https://hku-mmlab.github.io/PhysForge/)
+- [URDFormer: A Pipeline for Constructing Articulated Simulation Environments from Real-World Images](https://urdformer.github.io/)
+- [URDF-Anything: Constructing Articulated Objects with 3D Multimodal Language Model](https://lzvsdy.github.io/URDF-Anything/)
