@@ -34,7 +34,7 @@ class Trainer:
         self.track3d = torch.from_numpy(self.track_data["coords"]).float().cuda()
         self.vis_mask3d = torch.from_numpy(self.track_data["visibs"]).bool().cuda()
         # self.vis_mask3d = torch.ones_like(self.vis_mask3d).bool().cuda()
-        self.num_frames = self.track3d.shape[0]
+        self.num_frames = self.track3d.shape[0] # 100
         self.track_loss_weight = args.track_loss_weight
 
         idx = farthest_point_sample(self.track3d[0:1], 512).repeat(self.track3d.shape[0], 1)

@@ -1,103 +1,219 @@
-# VideoArtGS
+# VideoArtGS with PAT
+In this branch, we will integrate Part Articulation Transformer from [PARTICULATE](https://arxiv.org/pdf/2512.11798)
+
+## Architecture
+Input multi-frames --> Canonical gaussians --> Part Articulation Transformer --> Deformation field --> Output multi-frames
+
+## Advantage over original VideoArtGS
+- don't rely on heavy postprocessing procedures, including `depth and pose estimation` from VGGT, `3D tracks` from TAPIP3D
+
+## Advantage over Particulate
+- utilize multiview frames instead of input mesh, causing more efficient preprocessing steps
+
+# VideoArtGS pipeline
+
+## step 1
+use `bash scripts/init_cano.sh 1` 
+
+Given multiview frames, transform into canonical gaussians in the form of point cloud
+
+Input
+- /DATASET/images/, multiview frames(250 images from different perspectives)
+- /DATASET/depth/, depth maps for each frame
+- /DATASET/transforms.json, give the camera pose and each frame's intrinsic parameters
+- /DATASET/point_cloud.ply, ground truth point cloud
+
+Output
+- 3D gaussians after 20000 iterations with number N(N=42458 for scene `168`), for each gaussian, we have
+    - position $\mu \in \mathbb{R}^3$
+    - rotation $\q \in \mathbb{R}^4$
+    - scale $\s \in \mathbb{R}^3$
+    - opacity $\alpha \in [0,1]$
+    - SH feature $\f \in \mathbb{R}^{48}$ 
+    - part segmentation feature $\f \in \mathbb{R}^{16}$
+In total, we get $N \times 75$ parameters for each scene as gaussian primitives setting
+
+visualization:
+[point_cloud_init](./assets/images/init_cano_pc.png)
 
 
-<div align="center">
+## Step 2
 
-# **VideoArtGS**: Building Digital Twins of Articulated Objects from Monocular Video
+Command
+`bash scripts/init_deform.sh 1`
 
-<div align="center" margin-bottom="6em">
-    <span class="author-block">
-        <a href="https://yuliu-ly.github.io" target="_blank">Yu Liu</a><sup>1,2</sup>,</span>
-    <span class="author-block">
-        <a href="https://buzz-beater.github.io" target="_blank">Baoxiong Jia</a><sup>2</sup>,</span>
-    <span class="author-block">
-        <a href="https://github.com/Jason-aplp" target="_blank">Ruijie Lu</a><sup>2,3</sup>,</span>
-    <span class="author-block">
-        <a href="https://github.com/Juliagan2004" target="_blank">Chuyue Gan</a><sup>2,3</sup>,</span>
-    <span class="author-block">
-        <a href="https://github.com/HuayuChen2004" target="_blank">Huayu Chen</a><sup>2,3</sup>,</span>
-    <br>
-    <span class="author-block">
-        <a href="https://dali-jack.github.io/Junfeng-Ni" target="_blank">Junfeng Ni</a><sup>1,2</sup>,</span>
-    <span class="author-block">
-        <a href="https://zhusongchun.net" target="_blank">Song-Chun Zhu</a><sup>1,2,3</sup>,</span>
-    <span class="author-block">
-        <a href="https://siyuanhuang.com" target="_blank">Siyuan Huang</a><sup>2</sup></span>
-    <br>
-    <span class="author-block">
-        <sup>1</sup>Tsinghua University &nbsp&nbsp 
-        <sup>2</sup>National Key Lab of General AI, BIGAI &nbsp&nbsp 
-        <sup>3</sup>Peking University
-    </span>
+Objective
+This stage trains a coordinate-based Multi-Layer Perceptron (MLP) to learn the kinematic priors and the continuous deformation field of the dynamic scene. Instead of updating the canonical Gaussian attributes, it establishes a mapping network that outputs the spatial variations—specifically, the translation offset ($\delta \mu \in \mathbb{R}^3$) and rotation offset ($\delta r \in \mathbb{R}^4$)—for each Gaussian primitive given a specific timestamp $t$.
 
-[Website](https://videoartgs.github.io/) | [Arxiv](https://arxiv.org/abs/2509.17647) | [Data](https://huggingface.co/datasets/YuLiu/VideoArtGS-Data)
-</div>
-</div>
+Key Modules
+*   **Segmentation Module (`HybridSeg`)**: Computes the part-belonging probabilities (Part Masks) for each Gaussian primitive. It implicitly learns to group points into rigid kinematic parts without explicit 3D annotations.
+*   **Articulation Module (`ArticulationModel`)**: Models the mechanical skeleton constraints, outputting the articulation parameters to drive the grouped primitives.
 
-![overview](assets/images/overview.png)
+Inputs
+<!-- *   `point_cloud.ply`: The canonical 3D Gaussian geometry initialized from Step 1. -->
+*   `DATASET/joint_infos.json`: the json file containing the joint type, axis and pivot for each part
+*   `DATASET/filtered.npz`: Sparse 3D motion trajectories acting as physical tracking supervision. 
+    - coords: dimension (100, 7700, 3), `100` frames, `7700` tracked points, each with 3D coordinates.
+    - visibs: dimension (100, 7700), `100` frames, `7700` tracked points, value $M_{xy}$ as True/False indicating whether the point `y` is visible in the frame `x`.
 
-## Environment Setup
-We provide a script [install.sh](./install.sh) to install the environment.
-In our experiments, we used NVIDIA CUDA 12.4 on Ubuntu 22.04. You may need to modify the installation command according to your CUDA version.
+Outputs
+*   `deform.pth`: The optimized neural network weights serving as a highly compressed physical engine. including
+    - segmentation model
+        - center, dimension (2,3), centers of each part
+        - logscale, dimension (2,3), log scale of each part
+        - rot, dimension (2,4), rotation of each part
+        - grid, dimension 10035200, map from 3D coordinates to high dimension features
+        - mlp, map from dimension to raw probabilities of each part
+        - motion_grid, dimension 10035200, map from 3D coordinates to motion features
+        - motion_mlp, map from motion features to motion extent
+    - articulation model
+        - origins, dimension (3,3), origins of each part
+        - directions, dimension (3,3), directions of each part
+        - qr_s, dimension (4), quaternion real part
+        - qd_s, dimension (4), quaternion dual part
+        - time_model, map from time to state(rotation degree/prismatic distance)
 
-## Data Preparation
-For VideoArtGS-20 Dataset, we provide data at [here](https://huggingface.co/datasets/YuLiu/VideoArtGS-Data). 
 
-For Video2Articulation Dataset, please download the data from [Video2Articulation](https://github.com/3dlg-hcvc/video2articulation), and the Partnet-Mobility dataset, and then preprocess the data using `python data_tools/process_v2a.py`. You can also download the processed version at [here](https://huggingface.co/datasets/YuLiu/VideoArtGS-Data).
+---
 
-Data structure:
+## Step 3
+
+Command
+`bash scripts/train.sh 1`
+
+Jointly optimize deformation field and canonical gaussians from multiview frames and tracking trajectories.
+
+
+Inputs 
+- `OUTPUT/point_cloud.ply`, point cloud from step 1
+- `OUTPUT/deform.pth`, deformation weights from step 2
+- `DATASET/filtered.npz`, sparse 3D motion trajectories acting as physical tracking supervision. 
+    - coords: dimension (100, 7700, 3), `100` frames, `7700` tracked points, each with 3D coordinates.
+    - visibs: dimension (100, 7700), `100` frames, `7700` tracked points, value $M_{xy}$ as True/False indicating whether the point `y` is visible in the frame `x`.
+
+Outputs
+- updated `point_cloud.ply`, refined canonical gaussians after joint optimization
+- updated `deform.pth`, refined deformation weights after joint optimization
+
+
+
+output point cloud
+[point cloud after training](./assets/images/pc_after_train.png)
+---
+
+## Step 4
+
+Command
+`bash scripts/render.sh 1`
+
+Input
+- `point_cloud.ply`: trained canonical gaussians
+- `deform.pth`: trained deform field
+
+
+Output
+- ground truth multiview images
+- depth maps
+- `joint_info.json`: The final optimized 3D physical topology (optimized axes, origins, and segmentation centers).
+- `joint_value.npy`: The predicted temporal dynamics matrix of shape `[K_joints, N_frames]`, containing the rotation angles $\theta$ for each joint across the video sequence.
+
+
+## step 5
+Quantitative evaluation of the modeled articulated object, assessing both the geometric fidelity of the reconstructed 3D shape and the precision of the kinematic parameter estimation.
+
+Input:
+- ground truth axis direction, position and point cloud
+- predicted axis direction, position and point cloud
+
+Output: results.csv including
+- axis error
+- position error
+- chamfer distance for whole point cloud
+- chamfer distance for moving part point cloud
+- chamfer distance for static part point cloud
+
+## step 6(optional)
+Compute gif, mp4 and mesh for the articulated scene 
+
+
+# VideoArtGS+PAT pipeline
+Take the scene `168`(faucet) as an example
+## step 1
+This step is consistent with the original VideoArtGS pipeline, where we initialize the canonical Gaussian representation of the scene.
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/init_cano.sh 1 
 ```
-data
-├── videoartgs
-│   ├── realscan
-│   │   ├── microwave
-│   │   │   ├── images
-│   │   │   ├── ...
-│   ├── sapien
-│   │   ├── 100481
-│   │   │   ├── images
-│   │   │   ├── ...
-├── v2a
-│   ├── sapien
-│   │   ├── 100068_joint_0_bg_view_0
-│   │   │   ├── images
-│   │   │   ├── ...
+After that, we get the canonical gaussians, including position, rotation, scale, opacity, SH feature and part segmentation feature. The output is stored in `point_cloud.ply`.
+Specifically, the dimension for each gaussian primitive is 75, including
+- position $\mu \in \mathbb{R}^3$
+- rotation $\q \in \mathbb{R}^4$
+- scale $\s \in \mathbb{R}^3$
+- opacity $\alpha \in \mathbb{R}$
+- part segmentation feature $\f \in \mathbb{R}^{16}$
+- SH feature $\f \in \mathbb{R}^{48}$
+
+At this time, position $\mu$, rotation $\q$ and part segmentation feature $\f$ (combined with dimension 23) will be used as the input for the PAT model.
+
+
+## Step 2: Part Articulation Transformer (PAT) Inference
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/init_deform_PAT.sh 1 
 ```
+Objective: Infer kinematic structure directly from the 3D point cloud, replacing motion tracking and joint infos priors.
 
-## Training
-We provide the following files and scripts for training:
- - ``init_cano.py`` & ``scripts/init_cano.sh`` : training the coarse single state Gaussians.
- - ``init_deform.py`` & ``scripts/init_deform.sh`` : training the deformable Gaussians.
- - ``train.py`` & ``scripts/train.sh``: training the full model.
- - ``train_gui.py`` : training the full model with GUI visualization.
+Input
+- point cloud from step 1, including position, rotation and part segmentation feature
+    - position dimension 3
+    - rotation dimension 4
+    - part segmentation feature dimension 16
 
-Please run ``scripts/init_cano.sh`` and ``scripts/init_deform.sh`` before running ``scripts/train.sh``.
-
-## Reloading checkpoints & Evaluation
-We provide ``render.py`` and script ``scripts/render.sh, scripts/eval.sh`` for evaluation. You can download the checkpoints from [here](https://huggingface.co/datasets/YuLiu/VideoArtGS-Data) and put them in the ``outputs`` folder.
-
-## Visualization Tools
-We provide some visualization tools for intermediate results in ``vis_utils`` folder.
-You can visualize the point cloud, joint, and centers for initialization in ``vis_utils/vis_init.ipynb`` and visualize the Gaussians and deformation models in ``vis_utils/vis_videoartgs.ipynb``.
-
-## Export URDF and USD Files
-We provide ``vis_utils/json2urdf.py`` to export URDF files from the trained model. Load URDF files with IsaacSim (>=4.5) to export USD files. We found that IsaacSim can not load texture of `.ply` meshes. We provide a script``vis_utils/ply2glb.py``, which uses Blender to transform the `.ply` meshes to `.glb` meshes.
+Output
+- deform.pth, with exactly the same structure as the original VideoArtGS pipeline, including segmentation model and articulation model.
 
 
-## Reconstruct Articulated Objects from Self-captured Video
-See detailed instructions in [preprocess.md](./data_tools/preprocess.md).
 
 
-## Citation
-If you find our paper and/or code helpful, please consider citing:
-```
-@article{liu2025videoartgs,
-  title={VideoArtGS: Building Digital Twins of Articulated Objects from Monocular Video},
-  author={Liu, Yu and Jia, Baoxiong and Lu, Ruijie and Gan, Chuyue and Chen, Huayu and Ni, Junfeng and Zhu, Song-Chun and Huang, Siyuan},
-  journal={arXiv preprint arXiv:2509.17647},
-  year={2025}
-}
-```
+## Step 3-6
+It stays consistent with the original pipeline.
 
-## Acknowledgement
-This code heavily used resources from [ArtGS](https://github.com/YuLiu-LY/ArtGS), [SpatialTrackerV2](https://spatialtracker.github.io/), [TAPIP3D](https://github.com/zbw001/TAPIP3D), and [Video2Articulation](https://github.com/3dlg-hcvc/video2articulation). We thank the authors for open-sourcing their awesome projects.
+
+
+
+
+
+
+
+
+
+
+# PAT Architecture 
+
+
+
+# Loss Analysis
+
+
+# Evaluation Analysis
+In dataset `VideoArtGS`, 
+we already have ground truth,
+- axis direction $A_{gt} \in \mathbb{R}^3$
+- axis position $P_{gt} \in \mathbb{R}^3$
+- point cloud, stored in .ply 
+    - $P_{whole_gt} \in \mathbb{R}^{N \times 3}$
+    - $P_{part_x_gt} \in \mathbb{R}^{M_x \times 3}$
+x=1,2,...,k, where k is the number of parts in the scene
+we want to compute
+- axis direction $A_{pred} \in \mathbb{R}^3$
+- axis position $P_{pred} \in \mathbb{R}^3$
+- point cloud, stored in .ply 
+    - $P_{whole_pred} \in \mathbb{R}^{N \times 3}$
+    - $P_{part_x_pred} \in \mathbb{R}^{M_x \times 3}$
+x=1,2,...,k, where k is the number of parts in the scene
+
+And then evaluate by 
+- axis error $E_A = \arccos(\frac{A_{gt} \cdot A_{pred}}{||A_{gt}|| ||A_{pred}||})$
+- position error $E_P = ||P_{gt} - P_{pred}||_2$
+- chamfer distance $CD(P_{whole_gt}, P_{whole_pred})$ and
+- chamfer distance $CD(P_{part_x_gt}, P_{part_x_pred})$

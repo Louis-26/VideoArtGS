@@ -1,0 +1,193 @@
+from pathlib import Path
+from typing import Tuple
+
+import numpy as np
+
+
+AXES_PLUCKER_DIM = 12
+RANGE_DIM = 4
+
+
+def load_obj_raw_preserve(path: Path) -> Tuple[np.ndarray, np.ndarray]:
+    """Load vertices and faces from an OBJ file while preserving vertex order.
+
+    Args:
+        path (Path): Path to the OBJ file
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Tuple containing:
+            - vertices: Nx3 array of vertex positions
+            - faces: Mx3 array of face indices (0-based)
+    """
+    verts, faces = [], []
+    with path.open() as fh:
+        for ln in fh:
+            if ln.startswith('v '):   # keep order *exactly* as file
+                _, x, y, z = ln.split()[:4]
+                verts.append([float(x), float(y), float(z)])
+            elif ln.startswith('f '):
+                toks = ln[2:].strip().split()
+                if len(toks) == 3:
+                    faces.append([int(t.split('/')[0]) - 1 for t in toks])
+                else:
+                    faces.append([int(t.split('/')[0]) - 1 for t in toks[:3]])
+                    for i in range(2, len(toks) - 1):
+                        faces.append([int(toks[0].split('/')[0]) - 1,
+                                    int(toks[i].split('/')[0]) - 1,
+                                    int(toks[i + 1].split('/')[0]) - 1])
+    return np.asarray(verts, float), np.asarray(faces, int)
+
+
+def get_face_to_bone_mapping(
+    verts_to_bone: np.ndarray,
+    faces: np.ndarray,
+) -> np.ndarray:
+    """
+    Get the face to bone mapping.
+    """
+    face_to_bone = []
+    for face in faces:
+        bone_ids = verts_to_bone[face]
+        if len(np.unique(bone_ids)) != 1:  # All vertices belong to same bone
+            return None
+        face_to_bone.append(bone_ids[0])
+
+    return np.array(face_to_bone)
+
+
+def get_gt_motion_params(
+    link_axes_plucker: np.ndarray, 
+    link_range: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    # 0: "no motion"; 1: "revolute"; 2: "prismatic"; 3: "both"
+    gt_part_motion_class = (
+        np.any(link_axes_plucker[:, 6:9] != 0, axis=-1).astype(np.int8) * 2 + \
+        np.any(link_axes_plucker[:, 0:3] != 0, axis=-1).astype(np.int8)
+    )
+
+    gt_revolute_plucker = link_axes_plucker[:, :6]
+    gt_prismatic_axis = link_axes_plucker[:, 6:9]
+    gt_revolute_range = link_range[:, :2]
+    gt_prismatic_range = link_range[:, 2:]
+    return (
+        gt_part_motion_class, 
+        gt_revolute_plucker, gt_prismatic_axis, 
+        gt_revolute_range, gt_prismatic_range
+    )
+
+
+def sharp_sample_pointcloud(mesh, num_points: int = 8192):
+    V = mesh.vertices
+    N = mesh.face_normals
+    F = mesh.faces
+    
+    edge_to_faces = {}
+    
+    for face_idx in range(len(F)):
+        face = F[face_idx]
+        edges = [
+            (face[0], face[1]),
+            (face[1], face[2]),
+            (face[2], face[0])
+        ]
+        
+        for edge in edges:
+            edge_key = tuple(sorted(edge))
+            if edge_key not in edge_to_faces:
+                edge_to_faces[edge_key] = []
+            edge_to_faces[edge_key].append(face_idx)
+    
+    sharp_edges = []
+    sharp_edge_normals = []
+    sharp_edge_faces = []
+    cos_30 = np.cos(np.radians(30))  # ≈ 0.866
+    cos_150 = np.cos(np.radians(150))  # ≈ -0.866
+    
+    for edge_key, face_indices in edge_to_faces.items():
+        if len(face_indices) < 2:
+            continue
+        
+        is_sharp = False
+        for i in range(len(face_indices)):
+            for j in range(i + 1, len(face_indices)):
+                n1 = N[face_indices[i]]
+                n2 = N[face_indices[j]]
+                dot_product = np.dot(n1, n2)
+                
+                if cos_150 < dot_product < cos_30 and np.linalg.norm(n1) > 1e-8 and np.linalg.norm(n2) > 1e-8:
+                    is_sharp = True
+                    sharp_edges.append(edge_key)
+                    averaged_normal = (n1 + n2) / 2
+                    sharp_edge_normals.append(averaged_normal)
+                    sharp_edge_faces.append(face_indices)  # Store all adjacent faces
+                    break
+            if is_sharp:
+                break
+    
+    edge_a = np.array([edge[0] for edge in sharp_edges], dtype=np.int32)
+    edge_b = np.array([edge[1] for edge in sharp_edges], dtype=np.int32)
+    sharp_edge_normals = np.array(sharp_edge_normals, dtype=np.float64)
+
+    if len(sharp_edges) == 0:
+        samples = np.zeros((0, 3), dtype=np.float64)
+        normals = np.zeros((0, 3), dtype=np.float64)
+        edge_indices = np.zeros((0,), dtype=np.int32)
+        vertex_ids_a = np.zeros((0,), dtype=np.int32)
+        vertex_ids_b = np.zeros((0,), dtype=np.int32)
+        return samples, normals, edge_indices, sharp_edge_faces, vertex_ids_a, vertex_ids_b
+
+    sharp_verts_a = V[edge_a]
+    sharp_verts_b = V[edge_b]
+
+    weights = np.linalg.norm(sharp_verts_b - sharp_verts_a, axis=-1)
+    weights /= np.sum(weights)
+
+    random_number = np.random.rand(num_points)
+    w = np.random.rand(num_points, 1)
+    index = np.searchsorted(weights.cumsum(), random_number)
+    samples = w * sharp_verts_a[index] + (1 - w) * sharp_verts_b[index]
+    normals = sharp_edge_normals[index]
+    vertex_ids_a = edge_a[index]
+    vertex_ids_b = edge_b[index]
+    return samples, normals, index, sharp_edge_faces, vertex_ids_a, vertex_ids_b
+
+
+def sample_points(mesh, num_points, sharp_point_ratio):
+    """Sample exactly ``num_points`` from mesh using sharp edge and uniform sampling."""
+    num_points_sharp_edges = int(num_points * sharp_point_ratio)
+    num_points_uniform = num_points - num_points_sharp_edges
+    points_sharp, normals_sharp, edge_indices, sharp_edge_faces, _, _ = sharp_sample_pointcloud(mesh, num_points_sharp_edges)
+
+    # If no sharp edges were found, sample all points uniformly
+    if len(points_sharp) == 0 and sharp_point_ratio > 0:
+        print(f"Warning: No sharp edges found, sampling all points uniformly")
+        num_points_uniform = num_points
+
+    if num_points_uniform > 0:
+        points_uniform, face_indices = mesh.sample(num_points_uniform, return_index=True)
+        normals_uniform = mesh.face_normals[face_indices]
+    else:
+        points_uniform = np.zeros((0, 3), dtype=np.float64)
+        normals_uniform = np.zeros((0, 3), dtype=np.float64)
+        face_indices = np.zeros((0,), dtype=np.int32)
+
+    points = np.concatenate([points_sharp, points_uniform], axis=0)
+    normals = np.concatenate([normals_sharp, normals_uniform], axis=0)
+    sharp_flag = np.concatenate([
+        np.ones(len(points_sharp), dtype=np.bool_),
+        np.zeros(len(points_uniform), dtype=np.bool_)
+    ], axis=0)
+    
+    # For each sharp point, randomly select one of the adjacent faces from the edge
+    sharp_face_indices = np.zeros(len(points_sharp), dtype=np.int32)
+    for i, edge_idx in enumerate(edge_indices):
+        adjacent_faces = sharp_edge_faces[edge_idx]
+        # Randomly select one of the adjacent faces
+        sharp_face_indices[i] = np.random.choice(adjacent_faces)
+    
+    face_indices = np.concatenate([
+        sharp_face_indices,
+        face_indices
+    ], axis=0)
+    
+    return points, normals, sharp_flag, face_indices
