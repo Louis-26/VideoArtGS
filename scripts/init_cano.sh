@@ -44,7 +44,11 @@ esac
 model_name=init
 res=1
 for scene in ${scenes[@]};do
-    model_path=outputs/${dataset}/${subset}/${scene}/${model_name}
+    model_path=outputs_PAT/${dataset}/${subset}/${scene}/${model_name}
+    if [ -d "${model_path}/point_cloud/iteration_20000" ]; then
+        echo "⏭️ initialization of canonical gaussian already completed for ${scene}, skipping."
+        continue
+    fi
     python init_cano.py \
         --dataset ${dataset} \
         --subset ${subset} \

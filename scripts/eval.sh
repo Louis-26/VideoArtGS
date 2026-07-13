@@ -42,7 +42,13 @@ esac
 model_name=final
 iter=20000
 for scene in ${scenes[@]};do
-    model_path=outputs/${dataset}/${subset}/${scene}/${model_name}
+    echo "Evaluating scene: ${scene}"
+    model_path=outputs_PAT/${dataset}/${subset}/${scene}/${model_name}
+
+    if [ -f "${model_path}/train/ours_20000/result.csv" ]; then
+        echo "⏭️ evaluation  already completed for ${scene}, skipping."
+        continue
+    fi
     python eval.py \
         --dataset ${dataset} \
         --subset ${subset} \

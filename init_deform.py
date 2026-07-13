@@ -31,8 +31,8 @@ class Trainer:
         self.saving_iterations = saving_iterations
 
         self.track_data = np.load(f"{self.args.source_path}/filtered.npz")
-        self.track3d = torch.from_numpy(self.track_data["coords"]).float().cuda()
-        self.vis_mask3d = torch.from_numpy(self.track_data["visibs"]).bool().cuda()
+        self.track3d = torch.from_numpy(self.track_data["coords"]).float().cuda() # dim(100, 7700, 3)
+        self.vis_mask3d = torch.from_numpy(self.track_data["visibs"]).bool().cuda() # visibility of each tracked point
         # self.vis_mask3d = torch.ones_like(self.vis_mask3d).bool().cuda()
         self.num_frames = self.track3d.shape[0] # 100
         self.track_loss_weight = args.track_loss_weight
@@ -42,6 +42,7 @@ class Trainer:
         self.vis_mask3d1 = index_points(self.vis_mask3d.unsqueeze(-1), idx).squeeze(-1)
 
         self.deform = DeformModel(self.dataset)
+        # utilize ground truth of part segmentation information
         joint_infos = json.load(open(f"{self.args.source_path}/joint_infos.json", "r"))
         self.deform.init_from_joint_info(joint_infos)
         self.deform.train_setting(self.opt)

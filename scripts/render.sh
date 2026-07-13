@@ -49,7 +49,13 @@ res=1
 iter=20000
 for scene in ${scenes[@]};do
     # model_path=outputs/best/${dataset}/${scene}
-    model_path=outputs/${dataset}/${subset}/${scene}/${model_name}
+    model_path=outputs_PAT/${dataset}/${subset}/${scene}/${model_name}
+
+    if [ -d "${model_path}/train/ours_20000/renders/-1" ]; then
+        echo "⏭️ render already completed for ${scene}, skipping."
+        continue
+    fi
+
     python render.py \
         --dataset ${dataset} \
         --subset ${subset} \

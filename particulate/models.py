@@ -136,7 +136,7 @@ class PAT(nn.Module):
         hidden_size: int,
         num_layers: int,
         n_heads: int,
-        dropout: float,
+        dropout: float = 0.0,
         use_normals: bool = False,
         max_parts: int = 128,
         use_part_id_embedding: bool = True,

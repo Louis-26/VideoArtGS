@@ -51,11 +51,11 @@ def generate_video(img_path, video_name, fps=15, brighten=False, white_backgroun
     
     
 # video and gif generation
-def generate_video_gif(dataset, subset, scene):
+def generate_video_gif(dataset, subset, scene, output_dir="outputs"):
     # dataset = 'videoartgs'
     # subset = 'sapien'
     # scene = '30666'
-    file_dir = f"../outputs/{dataset}/{subset}/{scene}/final/train/ours_20000"
+    file_dir = f"../{output_dir}/{dataset}/{subset}/{scene}/final/train/ours_20000"
     img_path = f"{file_dir}/renders/-1"
     video_file = f'{file_dir}/{scene}_video.mp4'
     

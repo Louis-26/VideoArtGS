@@ -14,18 +14,19 @@ class HybridSeg(nn.Module):
     def __init__(self, num_slots, slot_size, scale_factor=1.0, shift_weight=0.5):
         super().__init__()
         num_slots = num_slots - 1 # remove the static slot
-        self.num_slots = num_slots
+        self.num_slots = num_slots # number of parts excluding the static slot
 
+        # self.grid, mapping from position(dim=3) to higher dimension(dim=24)
         self.grid = ProgressiveBandHashGrid(3, start_level=6, n_levels=12, start_step=0, update_steps=500)
-        dim = num_slots * 4 + self.grid.n_output_dims + 3
+        dim = num_slots * 4 + self.grid.n_output_dims + 3 # dim=35
         self.mlp = nn.Sequential(
-                nn.Linear(dim, slot_size),
+                nn.Linear(dim, slot_size), # input 35, output 32
                 nn.ReLU(),
-                nn.Linear(slot_size, num_slots * 2),
+                nn.Linear(slot_size, num_slots * 2), # input 32, output 4 
             )
-        self.center = nn.Parameter(torch.randn(num_slots, 3) * 0.01)
-        self.logscale = nn.Parameter((torch.rand(num_slots, 3) * 0.1).log())
-        self.rot = nn.Parameter(torch.Tensor([[1, 0, 0, 0]]).repeat(self.num_slots, 1))
+        self.center = nn.Parameter(torch.randn(num_slots, 3) * 0.01) # center of each segmentation，dim=2*3
+        self.logscale = nn.Parameter((torch.rand(num_slots, 3) * 0.1).log()) # log scale of each segmentation center
+        self.rot = nn.Parameter(torch.Tensor([[1, 0, 0, 0]]).repeat(self.num_slots, 1)) # 
 
         self.scale_factor = scale_factor
         self.shift_weight = shift_weight
@@ -47,6 +48,11 @@ class HybridSeg(nn.Module):
         x_rel = torch.cat([rel_pos, torch.norm(rel_pos, p=2, dim=-1, keepdim=True)], dim=-1) # [N, K, 4]
         info = torch.cat([x_rel.reshape(x.shape[0], -1), self.grid(x), x], -1)
         delta = self.mlp(info) # [N, K * 2]
+        # if delta.shape[-1] == 0:
+        #     logscale = torch.empty((delta.shape[0], 0), device=delta.device)
+        #     shift = torch.empty((delta.shape[0], 0), device=delta.device)
+        # else:
+        #     logscale, shift = torch.split(delta, delta.shape[-1] // 2, dim=-1)
         logscale, shift = torch.split(delta, delta.shape[-1] // 2, dim=-1) # [N, K]
 
         dist = dist * (self.shift_weight * logscale).exp()
@@ -371,13 +377,13 @@ class ArticulationModel(nn.Module):
         origins += directions * torch.einsum('ij,ij->i', directions, -origins)[:, None]
         for i in range(1, self.num_joints):
             direction = directions[i]
-            if self.joint_types[i] == 'r':
+            if self.joint_types[i] == 'r': # revolution type
                 joint_info = {
                     "joint_type": 'r',
                     'origin': origins[i].cpu().numpy(),
                     'direction': direction.cpu().numpy(),
                 }
-            elif self.joint_types[i] == 'p':
+            elif self.joint_types[i] == 'p': # prismatic type
                 joint_info = {
                     "joint_type": 'p',
                     'origin': np.zeros(3),
@@ -390,6 +396,7 @@ class ArticulationModel(nn.Module):
 class VideoArtGS(nn.Module):
     def __init__(self, args):
         super().__init__()
+        self.slot_size = args.slot_size
         self.slot_size = args.slot_size
         self.joint_types = args.joint_types
         self.num_slots = len(self.joint_types)

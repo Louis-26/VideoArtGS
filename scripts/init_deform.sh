@@ -48,6 +48,10 @@ seed=0
 model_name=init
 for scene in ${scenes[@]};do
     model_path=outputs/${dataset}/${subset}/${scene}/${model_name}
+    if [ -d "${model_path}/deform/iteration_10000" ]; then
+        echo "⏭️ initialization of deformed model already completed for ${scene}, skipping."
+        continue
+    fi
     python init_deform.py \
         --dataset ${dataset} \
         --subset ${subset} \

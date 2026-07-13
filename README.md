@@ -62,7 +62,7 @@ Outputs
         - center, dimension (2,3), centers of each part
         - logscale, dimension (2,3), log scale of each part
         - rot, dimension (2,4), rotation of each part
-        - grid, dimension 10035200, map from 3D coordinates to high dimension features
+        - grid, parameter dimension 10035200, map from 3D coordinates to high dimension features
         - mlp, map from dimension to raw probabilities of each part
         - motion_grid, dimension 10035200, map from 3D coordinates to motion features
         - motion_mlp, map from motion features to motion extent
@@ -71,8 +71,7 @@ Outputs
         - directions, dimension (3,3), directions of each part
         - qr_s, dimension (4), quaternion real part
         - qd_s, dimension (4), quaternion dual part
-        - time_model, map from time to state(rotation degree/prismatic distance)
-
+        - time_model, total parameter 16899, map from time to state(rotation degree/prismatic distance)
 
 ---
 
@@ -181,18 +180,27 @@ It stays consistent with the original pipeline.
 
 
 
-
-
-
-
-
-
-
 # PAT Architecture 
+Input:
+- point cloud 3D coordinates, dimension (N,3)
+<!-- - segmentation feature, dimension (N,16) -->
 
+Output, articulation parameters including
+- part_ids
+- motion_hierarchy
+- is_part_revolute
+- is_part_prismatic
+- revolute_plucker
+- revolute_range
+- prismatic_axis
+- prismatic_range
+- closest_point_on_axis
 
 
 # Loss Analysis
+- canonical-to-observation loss: $L_{c2o}$
+- render loss
+
 
 
 # Evaluation Analysis
@@ -217,3 +225,10 @@ And then evaluate by
 - position error $E_P = ||P_{gt} - P_{pred}||_2$
 - chamfer distance $CD(P_{whole_gt}, P_{whole_pred})$ and
 - chamfer distance $CD(P_{part_x_gt}, P_{part_x_pred})$
+
+# Complementary notes
+time cost for each step:
+- step 1: initialize canonical gaussians, 4 minutes per scene, 20000 iterations, A100-40GB-PCle
+- step 2: 12 seconds per scene for PAT integration, A100-40GB-PCle
+- step 3: train, 15 minutes per scene, 20000 iterations, A100-40GB-PCle
+- step 4: render, 3 minutes per scene, 250 frames, A100-40GB-PCle

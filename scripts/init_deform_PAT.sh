@@ -47,13 +47,17 @@ esac
 seed=0
 model_name=init
 for scene in ${scenes[@]};do
-    model_path=outputs/${dataset}/${subset}/${scene}/${model_name}
+    model_path=outputs_PAT/${dataset}/${subset}/${scene}/${model_name}
+    if [ -d "${model_path}/deform/iteration_1" ]; then
+        echo "⏭️ initialization of deformed model already completed for ${scene}, skipping."
+        continue
+    fi
     python init_deform_PAT.py \
         --dataset ${dataset} \
         --subset ${subset} \
         --scene_name ${scene} \
         --model_path ${model_path} \
         --iterations 10000 \
-        --seed ${seed} \
+        --seed ${seed} 
 
 done

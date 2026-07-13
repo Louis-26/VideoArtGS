@@ -93,7 +93,9 @@ class Trainer:
         self.deform = DeformModel(self.dataset)
         self.deform.deform.max_window_size = len(self.track3d)
         if self.scene.loaded_iter is None:
-            deform_dir = self.args.source_path.replace('./data/', 'outputs/')
+            # deform_dir = self.args.source_path.replace('./data/', 'outputs/')
+            output_dir=self.args.model_path.split("/")[0]
+            deform_dir = self.args.source_path.replace('./data/', output_dir+'/')
             deform_path = f'{deform_dir}/{self.args.deform_name}/deform/iteration_{deform_iter}/deform.pth'
             self.deform.deform.load_state_dict(torch.load(deform_path, weights_only=True))
         else:

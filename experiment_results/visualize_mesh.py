@@ -3,8 +3,8 @@ import numpy as np
 import seaborn as sns
 import glob, os
 
-def color_parts(scene, dataset, subset="sapien", base="."):
-    train_dir = f"{base}/outputs/{dataset}/{subset}/{scene}/final/train/ours_20000"
+def color_parts(scene, dataset, output_dir="outputs", subset="sapien", base="."):
+    train_dir = f"{base}/{output_dir}/{dataset}/{subset}/{scene}/final/train/ours_20000"
     mesh_dir = f"{train_dir}/meshes"
     parts = sorted(glob.glob(f"{mesh_dir}/part_*.ply"),
                    key=lambda p: int(p.split('part_')[1].split('.')[0]))

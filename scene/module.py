@@ -57,18 +57,18 @@ class ProgressiveBandHashGrid(nn.Module):
             "update_steps": update_steps,
         }
 
-        self.n_input_dims = in_channels
+        self.n_input_dims = in_channels # 3
         with torch.cuda.device(get_rank()):
             self.encoding = tcnn.Encoding(in_channels, encoding_config, dtype=dtype)
-        self.n_output_dims = self.encoding.n_output_dims
-        self.n_level = encoding_config["n_levels"]
-        self.n_features_per_level = encoding_config["n_features_per_level"]
+        self.n_output_dims = self.encoding.n_output_dims # 12 * 2 =24
+        self.n_level = encoding_config["n_levels"] # 12
+        self.n_features_per_level = encoding_config["n_features_per_level"] # 2
         self.start_level, self.start_step, self.update_steps = (
-            encoding_config["start_level"],
-            encoding_config["start_step"],
-            encoding_config["update_steps"],
-        )
-        self.current_level = self.start_level
+            encoding_config["start_level"], # 6
+            encoding_config["start_step"], # 1000
+            encoding_config["update_steps"], # 1000
+        ) 
+        self.current_level = self.start_level # 6
         self.mask = torch.zeros(
             self.n_level * self.n_features_per_level,
             dtype=torch.float32,

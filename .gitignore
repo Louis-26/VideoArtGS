@@ -1,4 +1,5 @@
 outputs/*
+outputs_PAT/*
 .vscode/*
 __pycache__/*
 __pycache__/
@@ -26,3 +27,4 @@ third_party/TAPIP3D/third_party/pointops2/dist
 
 
 SLURM_execution/
+*.ckpt

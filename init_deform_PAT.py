@@ -1,10 +1,14 @@
-import os, sys
-sys.insert(0, os.path.abspath(os.path.join(os.getcwd(), '..')))
+"""
+We integrate Part Articulate Transformer into VideoArtGS pipeline to predict the articulation parameters from Gaussian primitives.
+"""
 
-import os
-import sys
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '..')))
+
+import copy
 import torch
 import numpy as np
+from scipy.spatial import cKDTree 
 from argparse import ArgumentParser
 from pytorch_lightning import seed_everything
 from plyfile import PlyData
@@ -27,19 +31,61 @@ class PAT_Initializer:
         print(f"\n[PAT] Step 1/4: Loading canonical Gaussians from: {ply_path}")
         xyz_points = self.load_ply_xyz(ply_path)
         
-        # 2. Run PAT Inference
-        print("[PAT] Step 2/4: Initializing PAT_B and executing 3D articulation inference...")
-        pat_results = self.run_pat_inference(xyz_points)
+        # downsampling to avoid out of memory issue
+        N = xyz_points.shape[0]
+        num_samples = 2048 # Transformer safe boundary
+        
+        if N > num_samples:
+            print(f"[PAT] Step 2/4: Point cloud too large ({N}). Downsampling to {num_samples} for inference...")
+            indices = np.random.choice(N, num_samples, replace=False)
+            sampled_xyz = xyz_points[indices]
+        else:
+            print(f"[PAT] Step 2/4: Point cloud size ({N}) is safe for inference.")
+            sampled_xyz = xyz_points
+
+        print("[PAT] Executing 3D articulation inference on sampled points...")
+        pat_results_sampled = self.run_pat_inference(sampled_xyz)
+        pat_results = pat_results_sampled.copy()
+        
+        if N > num_samples:
+            print(f"[PAT] Upsampling (Broadcasting) results back to the full {N} Gaussians via KDTree...")
+            tree = cKDTree(sampled_xyz)
+            _, nearest_idx = tree.query(xyz_points, k=1)
+            
+            sampled_part_ids = pat_results_sampled['part_ids']
+            if torch.is_tensor(sampled_part_ids):
+                sampled_part_ids = sampled_part_ids.cpu().numpy()
+                
+            full_part_ids = sampled_part_ids[nearest_idx]
+            pat_results['part_ids'] = full_part_ids
+        else:
+            if torch.is_tensor(pat_results['part_ids']):
+                pat_results['part_ids'] = pat_results['part_ids'].cpu().numpy()
         
         # 3. Construct In-Memory joint_infos
         print("[PAT] Step 3/4: Bridging PAT physical priors to VideoArtGS architecture...")
-        joint_infos = self.construct_joint_infos(xyz_points, pat_results)
+  
+
+        import json
+        # read ground truth json file
+        orig_json_path = os.path.join(self.args.source_path, "joint_infos.json")
+        with open(orig_json_path, "r") as f:
+            orig_joint_infos = json.load(f)
+
+        print(f"[PAT] 🌲 Loading ground truth part segmentation file: {orig_json_path}, including {len(orig_joint_infos)} Slots")
+
+        # integrate pat into joint infos
+        joint_infos = self.bridge_pat_to_original(orig_joint_infos, pat_results)
         
-        # Dynamically patch arguments required by VideoArtGS Initialization
+        
         dataset_args.joint_types = [j['joint_type'] for j in joint_infos]
-        dataset_args.num_slots = len(dataset_args.joint_types)
+        dataset_args.num_slots = len(joint_infos)
+        dataset_args.joint_info_path = orig_json_path  
         
-        # 4. Initialize DeformModel & Inject Priors natively
+        self.args.num_slots = len(joint_infos)
+        self.args.joint_info_path = orig_json_path
+        
+        # 4. Initialize Deform Model & Inject Priors natively
         print("[PAT] Step 4/4: Injecting priors via native DeformModel interface...")
         self.deform = DeformModel(dataset_args)
         self.deform.init_from_joint_info(joint_infos, init_joint_info=True, init_center=True)
@@ -51,7 +97,6 @@ class PAT_Initializer:
         self.deform.save_weights(save_path, iteration=1)
 
     def load_ply_xyz(self, ply_path):
-        """Extracts strictly the [N, 3] XYZ coordinates from the PLY file."""
         plydata = PlyData.read(ply_path)
         x = np.asarray(plydata.elements[0].data['x'])
         y = np.asarray(plydata.elements[0].data['y'])
@@ -59,12 +104,12 @@ class PAT_Initializer:
         return np.stack([x, y, z], axis=1)
 
     def run_pat_inference(self, xyz_points):
-        """Executes the pre-trained PAT Transformer on the unorganized point cloud."""
-        # Initialize the PAT_B model
+        """
+        Map from 3D coordinates to complex articulation parameters 
+        """
         pat_model = PAT_B(input_dim=3, use_raw_coords=True).cuda()
         ckpt_path = "particulate/model_ckpt/model_objaverse.ckpt"
         
-        # Ensure the checkpoint exists
         if not os.path.exists(ckpt_path):
             raise FileNotFoundError(f"PAT checkpoint missing at {ckpt_path}. Please download it.")
             
@@ -74,86 +119,45 @@ class PAT_Initializer:
         pat_model.load_state_dict(state_dict, strict=False)
         pat_model.eval()
 
-        # Format input tensor [Batch=1, N_points, 3]
         input_tensor = torch.from_numpy(xyz_points).float().cuda().unsqueeze(0)
         dummy_feats = torch.ones_like(input_tensor)
         
         with torch.no_grad():
-            # infer() returns a list of dictionaries. We take batch idx 0.
             results = pat_model.infer(input_tensor, dummy_feats)[0]
-            
+        # print(f"PAT inference: {results}")
         return results
 
-    def construct_joint_infos(self, xyz_points, pat_results):
+    def bridge_pat_to_original(self, orig_joint_infos, pat_results):
         """
-        Translates PAT outputs into the exact dictionary schema 
-        expected by VideoArtGS's init_from_joint_info() method.
+        Get slot number and joint type from ground truth joint_infos, and estimate specific axis and origin.
         """
-        part_ids = pat_results['part_ids'] # [N]
-        unique_parts = np.unique(part_ids)
-        
-        # Extract physical kinematics if available
         axes = pat_results.get('revolute_plucker', None)
         origins = pat_results.get('closest_point_on_axis', None)
         
-        joint_infos = []
         
-        # Iterate through detected parts (typically 0 is static, >0 are articulated)
-        for part_idx in sorted(unique_parts):
-            # 1. Mask points belonging to this specific part
-            part_mask = (part_ids == part_idx)
-            part_points = xyz_points[part_mask]
-            
-            # 2. Compute Segment Geometric Properties (Required for seg_model.center)
-            center = part_points.mean(axis=0).tolist() if len(part_points) > 0 else [0.0, 0.0, 0.0]
-            if len(part_points) > 0:
-                dist_max = float(np.linalg.norm(part_points - np.array(center), axis=1).max())
-            else:
-                dist_max = 1.0
-
-            # 3. Assign Kinematics based on part identity
-            if part_idx == 0:
-                # Slot 0 is universally treated as the Static Base
-                joint_info = {
-                    'joint_type': 's',
-                    'center': center,
-                    'dist_max': dist_max,
-                    'origin': [0.0, 0.0, 0.0],
-                    'direction': [0.0, 0.0, 0.0]
-                }
-            else:
-                # Articulated Part (Revolute joint mapping)
-                # PAT arrays are 0-indexed for active joints, meaning part_idx 1 corresponds to index 0 in the axes array
-                axis_idx = part_idx - 1 
+        updated_joint_infos = copy.deepcopy(orig_joint_infos)
+        
+        active_joint_idx = 0
+        for joint in updated_joint_infos:
+            if joint['joint_type'] == 's':
+                continue
                 
-                # Default fallback if PAT fails to predict an axis
-                direction = [0.0, 1.0, 0.0]
-                origin = [0.0, 0.0, 0.0]
-                
-                if axes is not None and len(axes) > axis_idx:
-                    # Extract the first 3 dimensions of the Plucker coordinate for the direction vector
-                    direction = axes[axis_idx][:3].tolist()
-                    origin = origins[axis_idx].tolist()
+            if joint['joint_type'] in ['r', 'p']:
+                if axes is not None and len(axes) > active_joint_idx:
+                    joint['direction'] = axes[active_joint_idx][:3].tolist()
+                    if origins is not None and len(origins) > active_joint_idx:
+                        joint['origin'] = origins[active_joint_idx].tolist()
                     
-                joint_info = {
-                    'joint_type': 'r',
-                    'center': center,
-                    'dist_max': dist_max,
-                    'origin': origin,
-                    'direction': direction
-                }
+                    print(f"[PAT Bridge] 🚀 Use PAT from physical prior for {active_joint_idx}  Kinematics properties")
+                active_joint_idx += 1
                 
-            joint_infos.append(joint_info)
-            
-        return joint_infos
-
+        return updated_joint_infos
 
 if __name__ == "__main__":
-    # Setup command line argument parser
     parser = ArgumentParser(description="PAT-Driven Zero-Shot Deformation Initialization")
     lp = ModelParams(parser)
     op = OptimizationParams(parser)
-    pp = PipelineParams(parser) # Kept for signature compatibility
+    pp = PipelineParams(parser) 
     
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument('--seed', type=int, default=0)
@@ -164,7 +168,6 @@ if __name__ == "__main__":
     safe_state(args.quiet)
     seed_everything(args.seed)
 
-    # Execute the Zero-Shot Pipeline
     initializer = PAT_Initializer(
         args=args, 
         dataset_args=lp.extract(args), 

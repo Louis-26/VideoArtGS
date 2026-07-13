@@ -48,7 +48,12 @@ seed=0
 model_name=final
 res=2
 for scene in ${scenes[@]};do
-    model_path=outputs/${dataset}/${subset}/${scene}/${model_name}
+    echo "Training scene: ${scene}"
+    model_path=outputs_PAT/${dataset}/${subset}/${scene}/${model_name}
+    if [ -d "${model_path}/point_cloud/iteration_best" ] || [ -d "${model_path}/deform/iteration_best" ]; then
+        echo "⏭️ [SKIP] Scene ${scene} exists, skipping training."
+        continue
+    fi
     python train.py \
         --dataset ${dataset} \
         --subset ${subset} \
@@ -63,8 +68,8 @@ for scene in ${scenes[@]};do
         --metric_depth_loss_weight 1.0 \
         --random_bg_color \
         --track_loss_weight 0.5 \
+        --deform_init_iter 1
         # --load_iteration 5000 \
-
 done
 
 # # rendering

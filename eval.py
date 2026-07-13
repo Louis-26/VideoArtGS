@@ -47,7 +47,8 @@ def evaluate(args, name, iteration, eval_app=False):
     num_d_joints = len(gt_joint_list)
 
     s, d_list, w, perm = eval_CD(gt_path, mesh_path, num_d_joints, n_trials=3)
-
+    print("pred_joint_list: ",pred_joint_list)
+    print("gt_joint_list: ",gt_joint_list)
     results_list, _ = eval_axis_and_state_all(pred_joint_list, gt_joint_list, perm)
     output = pd.DataFrame()
 

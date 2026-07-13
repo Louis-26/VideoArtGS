@@ -58,9 +58,9 @@ PAPER_REFERENCE = {
 }
 
 
-def find_result_csvs(base, dataset, subset, iteration, scenes=None):
+def find_result_csvs(base, dataset, subset, iteration, output_dir="outputs", scenes=None):
     """Return list of (scene_name, csv_path) for all scenes with a result.csv."""
-    root = os.path.join(base, "outputs", dataset, subset)
+    root = os.path.join(base, f"{output_dir}", dataset, subset)
     pattern = os.path.join(root, "*", "final", "train", f"ours_{iteration}", "result.csv")
     paths = sorted(glob.glob(pattern))
 
@@ -90,12 +90,12 @@ def read_joint_type(base, dataset, subset, scene):
         return "unknown"
 
 
-def load_all(base, dataset, subset, iteration, scenes, need_joint_type):
+def load_all(base, dataset, subset, iteration, scenes, need_joint_type, output_dir="outputs"):
     """Load every scene's metrics into a DataFrame."""
-    entries = find_result_csvs(base, dataset, subset, iteration, scenes)
+    entries = find_result_csvs(base, dataset, subset, iteration, output_dir, scenes)
     if not entries:
         raise FileNotFoundError(
-            f"No result.csv found under outputs/{dataset}/{subset}/*/final/train/"
+            f"No result.csv found under {output_dir}/{dataset}/{subset}/*/final/train/"
             f"ours_{iteration}/result.csv"
         )
 
@@ -185,6 +185,7 @@ def main():
     ap.add_argument("--dataset", required=True, choices=["videoartgs", "v2a"],
                     help="Dataset name (videoartgs=Table 2, v2a=Table 1).")
     ap.add_argument("--subset", default="sapien", help="Subset name.")
+    ap.add_argument("--output_dir", default="outputs", help="Output directory.")
     ap.add_argument("--iteration", default=20000, type=int,
                     help="Iteration number in ours_{iteration}.")
     ap.add_argument("--scenes", nargs="*", default=None,
@@ -212,7 +213,7 @@ def main():
     df, n = load_all(
         args.base, args.dataset, args.subset, args.iteration,
         set(args.scenes) if args.scenes else None,
-        need_joint_type=args.split_joint,
+        need_joint_type=args.split_joint, output_dir=args.output_dir
     )
 
     print(f"Found {n} result.csv files for {args.dataset}/{args.subset}\n")
