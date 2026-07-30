@@ -11,6 +11,8 @@ debug.py
 *.out
 *.png
 *.pth
+
+# utils
 utils/pointnet_lib/pointnet2.egg-info
 utils/pointnet_lib/dist
 utils/pointnet_lib/build
@@ -18,6 +20,8 @@ ztosave/
 Depth-Anything-V2/
 data
 ztest/
+
+# third party
 third_party/TAPIP3D/third_party/pointnet_lib/pointnet2.egg-info
 third_party/TAPIP3D/third_party/pointnet_lib/dist
 third_party/TAPIP3D/third_party/pointnet_lib/build
@@ -25,6 +29,10 @@ third_party/TAPIP3D/third_party/pointops2/pointops2.egg-info
 third_party/TAPIP3D/third_party/pointops2/build
 third_party/TAPIP3D/third_party/pointops2/dist
 
+# git scripts
+git_script/
 
+# SLURM outputs
 SLURM_execution/
+
 *.ckpt

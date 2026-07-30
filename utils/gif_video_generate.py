@@ -1,3 +1,6 @@
+"""
+Tool script to generate .mp4 and .gif from a number of images
+"""
 import os
 from moviepy.editor import VideoFileClip
 import numpy as np

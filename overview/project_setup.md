@@ -4,18 +4,26 @@ current progress: finish step 1-5
 cd $(git rev-parse --show-toplevel)
 # bash ./install.sh
 conda create -n videoartgs python=3.10 -y
+
 conda activate videoartgs
 pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 "xformers>=0.0.27" --index-url https://download.pytorch.org/whl/cu124
 pip install torch-scatter -f https://data.pyg.org/whl/torch-2.4.1+cu124.html
 pip install -r requirements.txt
 pip install "protobuf<5" diffusers yacs
 
-# add this line
+# additional tools
 pip install "setuptools<70" wheel
+conda install git -y
+conda install -c conda-forge ffmpeg -y
 
 # continue
 pip install git+https://github.com/facebookresearch/pytorch3d.git@stable --no-build-isolation
+# if not working, use
+MAX_JOBS=4 pip install "git+ssh://git@github.com/facebookresearch/pytorch3d.git" --no-build-isolation -v
+
 pip install git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch --no-build-isolation
+# if not working, change TCNN_CUDA_ARCHITECTURES with actual CUDA version, make sure nvcc is enabled
+TCNN_CUDA_ARCHITECTURES=90 MAX_JOBS=8 python -m pip install "git+ssh://git@github.com/NVlabs/tiny-cuda-nn.git#subdirectory=bindings/torch" --no-build-isolation -v
 
 # build pointnet_lib for nearest farthest point sampling
 cd utils/pointnet_lib
@@ -31,11 +39,18 @@ cd ../../../..
 # notice: use gcc>10, cuda 12.5
 # gslpat
 pip install git+https://github.com/nerfstudio-project/gsplat.git --no-build-isolation
+# if not working, use
+MAX_JOBS=4 python -m pip install \
+  --no-cache-dir \
+  --no-build-isolation \
+  "git+https://github.com/nerfstudio-project/gsplat.git@v1.5.3"
 
 # simple-knn
 pip install git+https://gitlab.inria.fr/bkerbl/simple-knn.git --no-build-isolation
 
-conda install -c conda-forge ffmpeg -y
+# if not working, use
+MAX_JOBS=4 pip install git+ssh://git@https://gitlab.inria.fr/bkerbl/simple-knn.git --no-build-isolation
+
 
 ```
 
@@ -53,6 +68,7 @@ hf download YuLiu/VideoArtGS-Data --repo-type dataset --local-dir ./data
 cd "$(git rev-parse --show-toplevel)/data"
 unzip -q VideoArtGS-20.zip
 unzip -q realscan.zip
+unzip -q v2a.zip
 
 mkdir -p videoartgs
 mv realscan videoartgs/

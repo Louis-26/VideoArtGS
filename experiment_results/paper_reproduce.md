@@ -1,4 +1,5 @@
-# Quantitative Results
+# VideoArtGS
+## Quantitative Results
 code
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -10,7 +11,7 @@ python experiment_results/results_summary.py \
 python experiment_results/results_summary.py --dataset videoartgs --subset sapien
 
 ```
-## Table 1: Quantitative evaluation on Video2Articulation-S (v2a) dataset
+### Table 1: Quantitative evaluation on Video2Articulation-S (v2a) dataset
 
 
 | Method | Revolute Axis (°) | Revolute Position (cm) | Revolute State (°) | Prismatic Axis (°) | Prismatic State (cm) | CD-w (cm) | CD-m (cm) | CD-s (cm) |
@@ -20,14 +21,14 @@ python experiment_results/results_summary.py --dataset videoartgs --subset sapie
 
 
 
-### Revolute Joint Estimation (n=44)
+Revolute Joint Estimation (n=44)
 
 | Method | Axis (deg) | Position (cm) | State | CD-w (cm) | CD-m (cm) | CD-s (cm) |
 |---|---|---|---|---|---|---|
 |  Reproduced (n=44) | 0.344 ± 0.419 | 0.469 ± 0.917 | 3.406 ± 13.899 | 0.264 ± 0.321 | 0.266 ± 0.556 | 0.325 ± 0.402 |
 |  Paper | 0.320 ± 0.440 | 0.420 ± 0.750 | 1.150 ± 2.290 | 0.290 ± 0.240 | 0.400 ± 0.320 | 1.110 ± 2.110 |
 
-### Prismatic Joint Estimation (n=29)
+Prismatic Joint Estimation (n=29)
 
 | Method | Axis (deg) | State | CD-w (cm) | CD-m (cm) | CD-s (cm) |
 |---|---|---|---|---|---|
@@ -35,7 +36,7 @@ python experiment_results/results_summary.py --dataset videoartgs --subset sapie
 |  Paper | 0.350 ± 0.450 | 1.030 ± 2.460 | 0.290 ± 0.240 | 0.400 ± 0.320 | 1.110 ± 2.110 |
 
 
-## Table 2: Quantitative evaluation on VideoArtGS-20 (videoartgs) dataset
+### Table 2: Quantitative evaluation on VideoArtGS-20 (videoartgs) dataset
 | Method | Axis (deg) | Position (cm) | CD-w (cm) | CD-m (cm) | CD-s (cm) |
 |---|---|---|---|---|---|
 | Reproduced(PAT) | 26.918 ± 23.923 | 4.802 ± 8.523 | 0.110 ± 0.113 | 4.615 ± 8.158 | 0.883 ± 1.724 |
@@ -43,8 +44,9 @@ python experiment_results/results_summary.py --dataset videoartgs --subset sapie
 | Paper | 0.340 ± 0.800 | 0.100 ± 0.100 | 0.090 ± 0.090 | 0.260 ± 0.610 | 0.240 ± 0.580 |
 
 
-
-PAT per scene performance
+## VideoArtGS+PAT
+With 20 scenes in VideoArtGS-20 dataset.
+performance per scene
 === Per-scene metrics ===
  scene   angle  distance  CD_whole  CD_dynamic  CD_static
 100481 79.4013   29.5709    0.3352     24.5797     0.9236

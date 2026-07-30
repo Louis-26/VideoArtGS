@@ -1,3 +1,7 @@
+"""
+Derive Mesh segmentation from images
+"""
+
 import open3d as o3d
 import numpy as np
 import seaborn as sns

@@ -31,7 +31,7 @@ Output
     - opacity $\alpha \in [0,1]$
     - SH feature $\f \in \mathbb{R}^{48}$ 
     - part segmentation feature $\f \in \mathbb{R}^{16}$
-In total, we get $N \times 75$ parameters for each scene as gaussian primitives setting
+In total, we get $N \times 75$ parameters for each scene as gaussian primitives attributes
 
 visualization:
 [point_cloud_init](./assets/images/init_cano_pc.png)
