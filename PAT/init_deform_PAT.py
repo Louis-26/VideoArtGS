@@ -66,20 +66,20 @@ class PAT_Initializer:
         joint_infos = self.construct_joint_infos(xyz_points, pat_results)
         
         import json
-        # 1. 规规矩矩读取原始、干净的数据集图纸
+        # 1. read json files from original dataset
         orig_json_path = os.path.join(self.args.source_path, "joint_infos.json")
         with open(orig_json_path, "r") as f:
             orig_joint_infos = json.load(f)
             
-        print(f"[PAT] 🌲 成功加载原始数据集图纸: {orig_json_path}，包含 {len(orig_joint_infos)} 个 Slots")
+        print(f"[PAT] 🌲Successfully loading data file: {orig_json_path}, including {len(orig_joint_infos)} Slots")
 
-        # 2. 调用修改后的融合函数，把 PAT 的预测值揉进原始图纸里，不写盘！
+        # 2. Invoke the modified fusion function to blend PAT predictions into the original data
         joint_infos = self.bridge_pat_to_original(orig_joint_infos, pat_results)
         
-        # 3. 此时内存里的配置已经和原始数据集的结构完全一致了，直接喂给模型
+        # 3. feed the dataset into the model after aligning the data structure
         dataset_args.joint_types = [j['joint_type'] for j in joint_infos]
         dataset_args.num_slots = len(joint_infos)
-        dataset_args.joint_info_path = orig_json_path # 依然指向原始路径
+        dataset_args.joint_info_path = orig_json_path
         
         self.args.num_slots = len(joint_infos)
         self.args.joint_info_path = orig_json_path

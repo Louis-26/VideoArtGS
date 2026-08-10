@@ -11,7 +11,7 @@ Input multi-frames --> Canonical gaussians --> Part Articulation Transformer -->
 - utilize multiview frames instead of input mesh, causing more efficient preprocessing steps
 
 # VideoArtGS pipeline
-
+More detailed description can be found in [VideoArtGS pipeline](./overview/V_methodology.md), with flow chart available [here](https://www.figma.com/design/7dDTR57ZKdyMfOiuJXp0s8/VideoArtGS-PAT-procedure-graph?node-id=13-172&t=a1yyM5Rf8iqJX3WM-1)
 ## step 1
 use `bash scripts/init_cano.sh 1` 
 
@@ -50,7 +50,6 @@ Key Modules
 *   **Articulation Module (`ArticulationModel`)**: Models the mechanical skeleton constraints, outputting the articulation parameters to drive the grouped primitives.
 
 Inputs
-<!-- *   `point_cloud.ply`: The canonical 3D Gaussian geometry initialized from Step 1. -->
 *   `DATASET/joint_infos.json`: the json file containing the joint type, axis and pivot for each part
 *   `DATASET/filtered.npz`: Sparse 3D motion trajectories acting as physical tracking supervision. 
     - coords: dimension (100, 7700, 3), `100` frames, `7700` tracked points, each with 3D coordinates.
@@ -136,7 +135,7 @@ Compute gif, mp4 and mesh for the articulated scene
 
 
 # VideoArtGS+PAT pipeline
-Take the scene `168`(faucet) as an example
+More detailed description can be found in [VideoArtGS+PAT pipeline](./overview/V_PAT_methodology.md)
 ## step 1
 This step is consistent with the original VideoArtGS pipeline, where we initialize the canonical Gaussian representation of the scene.
 ```bash
