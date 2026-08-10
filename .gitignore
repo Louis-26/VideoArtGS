@@ -35,4 +35,7 @@ git_script/
 # SLURM outputs
 SLURM_execution/
 
+
 *.ckpt
+
+videoartgs.tar.gz
