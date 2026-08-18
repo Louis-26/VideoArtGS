@@ -54,7 +54,17 @@ Output:
 - Trained 3D **Canonical** Gaussian Primitives, $\mathcal{G}^c=\{G_i^c \}_{i=1}^N$
 - optimized canonical Gaussian model checkpoints(.ply) saved in different iterations(5000, 10000, 15000, 20000)
 
-
+execution:
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch init_cano.sh 1 1 outputs 1 
+```
+- independent GPU
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/init_cano.sh 1 1 outputs 1
+```
 
 
 ## step 2: motion prior analysis
@@ -129,6 +139,18 @@ Model:
 Output:
 - Initialized and trained Deformation field $\mathcal{F}$
 
+execution:
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch init_deform.sh 1 1 outputs 1 
+```
+- independent GPU
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/init_deform.sh 1 1 outputs 1
+```
+
 
 ## step 5: canonical gaussian and deformation field joint training
 Overview:
@@ -159,6 +181,27 @@ Output:
 - Updated Gaussian Primitives
 - Updated Deformation field(articulation parameters $A_{\Psi}$ and segmentation module)
 
+
+Execution:
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch train.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs
+```
+- independent GPU
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/train.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs
+```
+
 ## step 6: 3D deformed gaussians rendering
 Overview:
 After finishing training the canonical Gaussian primitives and deformation field, render the deformed Gaussian primitives to get qualitative results, including rendered RGB/depth images, videos/gif and mesh visualization.
@@ -166,7 +209,9 @@ After finishing training the canonical Gaussian primitives and deformation field
 
 Corresponding scripts
 - [render.py](../render.py)
+- [render_mask.py](../render_mask.py)
 - [render.sh](../scripts/render.sh)
+- [render_mask.sh](../scripts/render_mask.sh)
 - [SLURM render.sh](../SLURM_execution/SLURM_script/render.sh)
 - [gif_video_generate.py](../utils/gif_video_generate.py)
 - [visualize_mesh.py](../utils/visualize_mesh.py)
@@ -186,6 +231,42 @@ Output:
 - Rendered RGB images and depth maps for each frame
 - generated mp4/gif for the articulated scene
 - colored mesh visualization files .ply(`meshes/`: per-part + whole, via TSDF) 
+
+Execution:
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch render.sh \
+    --use_multi 0 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs
+    
+sbatch render_mask.sh \
+    --use_multi 0 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs
+```
+- independent GPU
+```bash
+# need to disable multi-GPU
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/render.sh \
+    --use_multi 0 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs
+
+bash scripts/render_mask.sh \
+    --use_multi 0 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs
+```
+
+
+
 
 ## step 7: evaluation
 Overview:
@@ -210,3 +291,22 @@ Output:
 - chamfer distance between predicted and ground truth meshes for the movable parts (CD-m)
 - chamfer distance between predicted and ground truth meshes for the static parts (CD-s)
 
+Execution:
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch eval.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs
+```
+- independent GPU
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/eval.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs
+```

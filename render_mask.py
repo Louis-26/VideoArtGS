@@ -32,7 +32,7 @@ def render_set(args, iteration, views, gaussians, deform, visualize=False):
     makedirs(save_dir, exist_ok=True)
     makedirs(gts_path, exist_ok=True)
 
-    gs_mask = deform.get_mask(gaussians.get_xyz)
+    gs_mask = deform.deform.get_mask(gaussians.get_xyz)
     gt_rgbs = []
     gt_alphas = []
     masks = []

@@ -63,7 +63,7 @@ Input:
     - rest 5 of them for test: `45503  45612  47648  8961  9016`
 
 Model:
-Part Articulate Transformer, with N=8 blocks
+Part Articulate Transformer, with N=6 blocks
 
 Finetune:
 LoRA update with the 15 training scenes
@@ -88,17 +88,16 @@ Finetuned Part Articulation Transformer(PAT) model from [PARTICULATE](https://ru
 
 Output:
 Initialized segmentation parameters prior for $S_\Phi$, and articulation parameters $A_\Psi$ including the following for each part
-- per-Gaussian part labels as segmentation prior $m_i$ for each gaussian primitive index $i \in 1, \dots, N$
+- per-Gaussian part labels as segmentation prior $\mathcal{l}_i$ for each gaussian primitive index $i \in 1, \dots, N$
 - articulation parameters prior
     - articulation axis direction($\mathbb{R}^3$) 
     - articulation axis origin($\mathbb{R}^3$) 
     - joint type for each movable part(prismatic/revolute)
+    - joint motion range($\mathbb{R}^2$) 
 - segmentation parameters prior
     - part radial extent(dist_max) for each part
     - number of parts $K$
     - part center $c_k$ with $k \in 1, ..., K$
-- motion parameters prior
-    - joint motion range($\mathbb{R}^2$)  
 
 
 
@@ -144,8 +143,8 @@ Input:
 - Initialized articulation parameters $A_\Psi$(axis direction/origin, joint type) from step 3
 
 Model:
-- Deformation field $\mathcal{F}$ including `Segmentation Module $S_\Phi$` from step 3 and `Articulation Module $A_\Psi$` from step 2 (with axis direction/origin for each part)
-- Trained with the multiview frame loss
+- Deformation field $\mathcal{F}$ including `Segmentation Module $S_\Phi$` from step 4 and `Articulation Module $A_\Psi$` from step 3 (with axis direction/origin for each part)
+
 
 Output:
 - Initialized and trained Deformation field $\mathcal{F}$
@@ -173,7 +172,6 @@ Model/Parameters:
 
 Training:
 - optimize based on the render loss($\mathcal{L}_{RGB_render}=((1-\lambda_{SSIM})\mathcal{L}_1+\lambda_{SSIM}\mathcal{L}_{SSIM}+\mathcal{L}_{seg})$) 
-
 
 Output:
 - Updated Gaussian Primitives

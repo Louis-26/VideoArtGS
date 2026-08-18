@@ -3,7 +3,8 @@ We integrate Part Articulate Transformer into VideoArtGS pipeline to predict the
 """
 
 import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '..')))
+ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, ROOT)
 
 import torch
 import numpy as np
@@ -16,6 +17,7 @@ from scene import DeformModel
 from arguments import ModelParams, PipelineParams, OptimizationParams
 from utils.general_utils import safe_state
 
+import copy
 # Import PAT architecture from the copied particulate package
 from particulate.models import PAT_B
 
@@ -104,7 +106,7 @@ class PAT_Initializer:
 
     def run_pat_inference(self, xyz_points):
         pat_model = PAT_B(input_dim=3, use_raw_coords=True).cuda()
-        ckpt_path = "../particulate/model_ckpt/model_objaverse.ckpt"
+        ckpt_path = os.path.join(ROOT, "particulate/model_ckpt/model_objaverse.ckpt")
         
         if not os.path.exists(ckpt_path):
             raise FileNotFoundError(f"PAT checkpoint missing at {ckpt_path}. Please download it.")
@@ -123,6 +125,31 @@ class PAT_Initializer:
             
         return results
 
+    def bridge_pat_to_original(self, orig_joint_infos, pat_results):
+        """
+        Get slot number and joint type from ground truth joint_infos, and estimate specific axis and origin.
+        """
+        axes = pat_results.get('revolute_plucker', None)
+        origins = pat_results.get('closest_point_on_axis', None)
+        
+        updated_joint_infos = copy.deepcopy(orig_joint_infos)
+        
+        active_joint_idx = 0
+        for joint in updated_joint_infos:
+            if joint['joint_type'] == 's':
+                continue
+                
+            if joint['joint_type'] in ['r', 'p']:
+                if axes is not None and len(axes) > active_joint_idx:
+                    joint['direction'] = axes[active_joint_idx][:3].tolist()
+                    if origins is not None and len(origins) > active_joint_idx:
+                        joint['origin'] = origins[active_joint_idx].tolist()
+                    
+                    print(f"[PAT Bridge] 🚀 Use PAT from physical prior for {active_joint_idx}  Kinematics properties")
+                active_joint_idx += 1
+                
+        return updated_joint_infos
+    
     def construct_joint_infos(self, xyz_points, pat_results):
         part_ids = pat_results['part_ids'] 
         unique_parts = np.unique(part_ids)

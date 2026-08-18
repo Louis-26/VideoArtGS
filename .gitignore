@@ -39,3 +39,8 @@ SLURM_execution/
 *.ckpt
 
 videoartgs.tar.gz
+
+
+# logs
+logs/
+time_logs/

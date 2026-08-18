@@ -1,63 +1,89 @@
-export CUDA_VISIBLE_DEVICES=0
-export TORCH_CUDA_ARCH_LIST="8.6"
+#!/bin/bash
 
-# dataset=videoartgs
-# subset=sapien
-# scenes=('100481' '101284' '101287' '101808' '101908' '103015' '103811' '10489' '10655' '168' '25493' '30666' '31249' '45194' '45503' '45612' '47648' '8961' '9016' '1280')
+# ====================================================
+# [Step 1: Import GPU utils]
+# ====================================================
+source "$(git rev-parse --show-toplevel)/scripts/gpu_utils.sh"
 
+# ====================================================
+# [Step 2: Parse terminal inputs]
+# ====================================================
+MODE=1
+USE_MULTI=0
+KEEP_LOGS=0
+OUTPUT_DIR="outputs"
+MIN_MEM=5120    
 
-# subset=realscan
-# scenes=('cab1' 'chair_1r' 'mac_1r' 'microwave_ego' 'cab_1r_1p' 'coffeemachine_2r' 'microwave_1r')
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --use_multi) USE_MULTI="$2"; shift ;;
+        --keep_logs) KEEP_LOGS="$2"; shift ;;
+        --mode) MODE="$2"; shift ;;
+        --output_dir) OUTPUT_DIR="$2"; shift ;;
+        *) echo "❌ Error: Unknown parameter: $1"; exit 1 ;;
+    esac
+    shift
+done
 
-# dataset=v2a
-# subset=sapien
-# scenes=('100068_joint_0_bg_view_0' '100071_joint_0_bg_view_1' '100072_joint_0_bg_view_0' '100087_joint_0_bg_view_0' '100092_joint_0_bg_view_0' '100106_joint_0_bg_view_1' '100128_joint_0_bg_view_1' '100133_joint_0_bg_view_0' '10040_joint_1_bg_view_0' '100664_joint_0_bg_view_1')
-# scenes=('10143_joint_0_bg_view_1' '101886_joint_0_bg_view_0' '101948_joint_0_bg_view_1' '10306_joint_1_bg_view_1' '103273_joint_1_bg_view_1' '103283_joint_1_bg_view_1' '103351_joint_0_bg_view_0' '103490_joint_0_bg_view_0' '103528_joint_0_bg_view_1' '10356_joint_0_bg_view_1' '10373_joint_0_bg_view_0' '103778_joint_0_bg_view_0' '10495_joint_0_bg_view_1' '10558_joint_0_bg_view_0' '10559_joint_0_bg_view_1' '10567_joint_0_bg_view_0' '10867_joint_0_bg_view_1' '10895_joint_1_bg_view_0' '10973_joint_0_bg_view_1' '11304_joint_0_bg_view_0' '11304_joint_1_bg_view_0' '11700_joint_0_bg_view_1' '12071_joint_0_bg_view_0' '12531_joint_0_bg_view_1' '12552_joint_0_bg_view_0' '12552_joint_0_bg_view_1' '12562_joint_0_bg_view_1' '12565_joint_1_bg_view_0' '19179_joint_1_bg_view_1' '19855_joint_0_bg_view_1' '19898_joint_1_bg_view_1' '19898_joint_3_bg_view_0' '19898_joint_4_bg_view_1' '20745_joint_0_bg_view_1' '20985_joint_1_bg_view_0' '22241_joint_0_bg_view_1' '22339_joint_0_bg_view_1' '22367_joint_0_bg_view_0' '22367_joint_2_bg_view_0' '22433_joint_0_bg_view_0' '22433_joint_0_bg_view_1' '22433_joint_1_bg_view_0' '23372_joint_1_bg_view_1' '23724_joint_0_bg_view_1' '23724_joint_2_bg_view_0' '23807_joint_1_bg_view_1' '26525_joint_0_bg_view_1' '26608_joint_0_bg_view_1' '26657_joint_1_bg_view_0' '27267_joint_0_bg_view_1' '35059_joint_0_bg_view_0' '40453_joint_1_bg_view_1' '41083_joint_3_bg_view_1' '41510_joint_1_bg_view_1' '44781_joint_0_bg_view_1' '44817_joint_1_bg_view_1' '44962_joint_2_bg_view_1' '45001_joint_1_bg_view_0' '45132_joint_2_bg_view_0' '45146_joint_0_bg_view_0' '7265_joint_0_bg_view_0' '7265_joint_0_bg_view_1' '9987_joint_0_bg_view_1')
+# ====================================================
+# [Step 3: Initialize environment]
+# ====================================================
+init_env "$USE_MULTI" "$KEEP_LOGS" "$MIN_MEM"
+
 source $(git rev-parse --show-toplevel)/scripts/scene_set.sh
+parse_mode "$MODE"
 
-MODE=${1:-1}
-
-# Parse user input
-case "$MODE" in
-    1)
-        dataset="videoartgs"
-        subset="sapien"
-        scenes=("${videoartgs_sapien_scenes[@]}")
-        echo "=> Running mode 1: dataset=${dataset}, subset=${subset}"
-        ;;
-    2)
-        dataset="videoartgs"
-        subset="realscan"
-        scenes=("${videoartgs_realscan_scenes[@]}")
-        echo "=> Running mode 2: dataset=${dataset}, subset=${subset}"
-        ;;
-    3)
-        dataset="v2a"
-        subset="sapien"
-        scenes=("${v2a_sapien_scenes[@]}")
-        echo "=> Running mode 3: dataset=${dataset}, subset=${subset}"
-        ;;
-    *)
-        echo "Error: Invalid input '$MODE'. Please enter 1, 2, or 3."
-        exit 1
-        ;;
-esac
-
-
-seed=0
 model_name=init
-for scene in ${scenes[@]};do
-    model_path=outputs/${dataset}/${subset}/${scene}/${model_name}
-    if [ -d "${model_path}/deform/iteration_10000" ]; then
-        echo "⏭️ initialization of deformed model already completed for ${scene}, skipping."
+seed=0
+
+# ====================================================
+# [Step 4: Deform Initialization loop with GPU scheduling]
+# ====================================================
+for i in "${!scenes[@]}"; do
+    scene="${scenes[$i]}"
+    echo "========================================="
+    echo "🎬 Initializing deformation field for scene: ${scene}"
+    model_path="${OUTPUT_DIR}/${dataset}/${subset}/${scene}/${model_name}"
+    
+    # Check if the initialization has already completed
+    if [ -d "${model_path}/deform/iteration_1" ]; then
+        echo "⏭️ [SKIP] Scene ${scene} deformation initialization already completed."
         continue
     fi
-    python init_deform.py \
-        --dataset ${dataset} \
-        --subset ${subset} \
-        --scene_name ${scene} \
-        --model_path ${model_path} \
-        --iterations 10000 \
-        --seed ${seed} \
+    
+    # Precise GPU indexing using loop index 'i'
+    GPU_IDX=${GPUS[$((i % NUM_GPUS))]}
+    export CUDA_VISIBLE_DEVICES=$GPU_IDX
 
+    CMD="python init_deform.py \
+            --dataset ${dataset} \
+            --subset ${subset} \
+            --scene_name ${scene} \
+            --model_path ${model_path} \
+            --iterations 10000 \
+            --seed ${seed}"
+
+    if [ "$USE_MULTI" -eq 1 ]; then
+        echo "➡️  [Dispatch] Deploying scene ${scene} to GPU ${GPU_IDX} (background)"
+        # Log named logs_init_deform_ to avoid conflicts
+        eval "$CMD" > logs/logs_init_deform_${scene}.txt 2>&1 &  
+        sleep 2 
+
+        # Batch waiting mechanism
+        if [ $(( (i + 1) % NUM_GPUS )) -eq 0 ]; then
+            echo "⏳ GPU queue full ($NUM_GPUS/$NUM_GPUS), waiting..."
+            wait
+        fi
+    else
+        echo "➡️  [Sequential] Deploying scene ${scene} to GPU ${GPU_IDX}"
+        eval "$CMD"  
+    fi
 done
+
+wait
+echo "🎉 Deformation initialization finished successfully!"
+
+# ====================================================
+# [Step 5: Cleanup]
+# ====================================================
+finish_env

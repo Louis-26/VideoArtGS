@@ -1,55 +1,90 @@
-export CUDA_VISIBLE_DEVICES=0
-export TORCH_CUDA_ARCH_LIST="8.6"
+#!/bin/bash
 
-# dataset=artgs
-# subset=sapien
-# scenes=('101908' '101917' '10211' '102255' '103111' '103706_eevee' '103706_rotate' '103776_eevee' '10537' '10537_rotate' '10905' '10905_bg' '25493' '31249' '45503' '47648')
-source $(git rev-parse --show-toplevel)/scripts/scene_set.sh
+# ====================================================
+# [Step 1: Import GPU utils]
+# ====================================================
+source "$(git rev-parse --show-toplevel)/scripts/gpu_utils.sh"
 
-MODE=${1:-1}
+# ====================================================
+# [Step 2: Parse terminal inputs]
+# ====================================================
+MODE=1
+USE_MULTI=0
+KEEP_LOGS=0
+RES=2
+OUTPUT_DIR="outputs"
+MIN_MEM=10240
 
-# Parse user input
-case "$MODE" in
-    1)
-        dataset="videoartgs"
-        subset="sapien"
-        scenes=("${videoartgs_sapien_scenes[@]}")
-        echo "=> Running mode 1: dataset=${dataset}, subset=${subset}"
-        ;;
-    2)
-        dataset="videoartgs"
-        subset="realscan"
-        scenes=("${videoartgs_realscan_scenes[@]}")
-        echo "=> Running mode 2: dataset=${dataset}, subset=${subset}"
-        ;;
-    3)
-        dataset="v2a"
-        subset="sapien"
-        scenes=("${v2a_sapien_scenes[@]}")
-        echo "=> Running mode 3: dataset=${dataset}, subset=${subset}"
-        ;;
-    *)
-        echo "Error: Invalid input '$MODE'. Please enter 1, 2, or 3."
-        exit 1
-        ;;
-esac
-
-
-seed=0
-model_name=base_tl0.5
-res=1
-iter=10000
-
-for scene in ${scenes[@]};do
-    # model_path=outputs/best/${dataset}/${scene}
-    model_path=outputs/${dataset}/${subset}/${scene}/${model_name}
-    python render_mask.py \
-        --dataset ${dataset} \
-        --subset ${subset} \
-        --scene_name ${scene} \
-        --model_path ${model_path} \
-        --resolution ${res} \
-        --iteration ${iter} \
-        --visualize \
-
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --use_multi) USE_MULTI="$2"; shift ;;
+        --keep_logs) KEEP_LOGS="$2"; shift ;;
+        --mode) MODE="$2"; shift ;;
+        --output_dir) OUTPUT_DIR="$2"; shift ;;
+        *) echo "❌ Error: Unknown parameter: $1"; exit 1 ;;
+    esac
+    shift
 done
+
+# ====================================================
+# [Step 3: Initialize environment]
+# ====================================================
+init_env "$USE_MULTI" "$KEEP_LOGS" "$MIN_MEM"
+
+source $(git rev-parse --show-toplevel)/scripts/scene_set.sh
+parse_mode "$MODE"
+
+model_name=final
+seed=0
+iter=20000
+# ====================================================
+# [Step 4: Training loop with proper GPU scheduling]
+# ====================================================
+for i in "${!scenes[@]}"; do
+    scene="${scenes[$i]}"
+    echo "========================================="
+    echo "🎬 Training scene: ${scene}"
+    model_path=${OUTPUT_DIR}/${dataset}/${subset}/${scene}/${model_name}
+    
+    if [ -d "${model_path}/ours_${iter}/vis_mask/" ]; then
+        echo "⏭️ [SKIP] Scene ${scene} already rendered."
+        continue
+    fi
+    
+    # Precise GPU indexing using loop index 'i'
+    GPU_IDX=${GPUS[$((i % NUM_GPUS))]}
+    export CUDA_VISIBLE_DEVICES=$GPU_IDX
+
+    CMD="python render_mask.py \
+            --dataset ${dataset} \
+            --subset ${subset} \
+            --scene_name ${scene} \
+            --model_path ${model_path} \
+            --resolution ${RES} \
+            --iteration ${iter} \
+            --visualize"
+
+    if [ "$USE_MULTI" -eq 1 ]; then
+        echo "➡️  [Dispatch] Deploying scene ${scene} to GPU ${GPU_IDX} (background)"
+        eval "$CMD" > logs/logs_render_mask_${scene}.txt 2>&1 &  
+        sleep 2 
+
+        # Batch waiting mechanism
+        if [ $(( (i + 1) % NUM_GPUS )) -eq 0 ]; then
+            echo "⏳ GPU queue full ($NUM_GPUS/$NUM_GPUS), waiting..."
+            wait
+        fi
+    else
+        echo "➡️  [Sequential] Deploying scene ${scene} to GPU ${GPU_IDX}"
+        eval "$CMD" > logs/logs_render_mask_${scene}.txt 2>&1 
+    fi
+done
+
+wait
+echo "🎉 Rendering finished successfully!"
+
+# ====================================================
+# [Step 5: Cleanup]
+# ====================================================
+finish_env
+

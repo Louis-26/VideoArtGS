@@ -9,7 +9,7 @@ conda activate videoartgs
 pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 "xformers>=0.0.27" --index-url https://download.pytorch.org/whl/cu124
 pip install torch-scatter -f https://data.pyg.org/whl/torch-2.4.1+cu124.html
 pip install -r requirements.txt
-pip install "protobuf<5" diffusers yacs
+pip install "protobuf<5" diffusers yacs ninja nvitop
 
 # additional tools
 pip install "setuptools<70" wheel
@@ -50,8 +50,13 @@ pip install git+https://gitlab.inria.fr/bkerbl/simple-knn.git --no-build-isolati
 
 # if not working, use
 MAX_JOBS=4 pip install git+ssh://git@https://gitlab.inria.fr/bkerbl/simple-knn.git --no-build-isolation
-
-
+```
+Meanwhile, set up the external hardware environment
+```bash
+which nvcc && nvcc --version # ensure nvcc is enabled
+echo "export CUDA_HOME=$CONDA_PREFIX" >> ~/.bashrc   
+echo "export TCNN_CUDA_ARCHITECTURES=90" >> ~/.bashrc
+source ~/.bashrc
 ```
 
 # step 2: data preparation
@@ -77,7 +82,7 @@ mkdir sapien
 mv *_joint_*_bg_view_* sapien/
 
 cd "$(git rev-parse --show-toplevel)/data"
-rm -rf *.zip
+rm -rf *.zip && rm -rf sapien/
 ### alternatively
 cd SLURM_execution/SLURM_script
 sbatch data_prepare.sh
@@ -88,6 +93,14 @@ sbatch data_prepare.sh
 cd "$(git rev-parse --show-toplevel)/data/videoartgs/realscan"
 ls -1 | sed "s/.*/'&'/" | paste -sd " " | sed 's/,/, /g'
 # do the similar for other subset
+```
+
+download PAT model checkpoint
+```bash
+cd "$(git rev-parse --show-toplevel)"
+wget https://huggingface.co/mikaelaangel/partfield-ckpt/resolve/main/model_objaverse.ckpt
+mkdir -p particulate/model_ckpt
+mv model_objaverse.ckpt particulate/model_ckpt/
 ```
 
 
