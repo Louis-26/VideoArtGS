@@ -5,14 +5,17 @@ Aggregate per-scene result.csv files into a summary table.
 Each scene's metrics live at:
     outputs/{dataset}/{subset}/{scene}/final/train/ours_{iteration}/result.csv
 
-This script scans all such files, aggregates the 5 core metrics (mean ± std),
-optionally splits by joint type (revolute / prismatic for Table 1), and prints
-a Markdown table ready to paste into a report.
+This script scans all such files, aggregates the 4 core metrics (mean ± std), including axis/position/joint state error,
+and CD loss for whole/movable/static parts
 
 Examples
 --------
 # Table 2 (VideoArtGS-20, no joint-type split):
 python results_summary.py --dataset videoartgs --subset sapien
+
+# Same, plus the State column (needs joint_state_error in result.csv --
+# produced by the current eval.py, or backfilled via utils/backfill_state_error.py):
+python results_summary.py --dataset videoartgs --subset sapien --with-state
 
 # Table 1 (Video2Articulation-S, split revolute/prismatic, with State column):
 python results_summary.py --dataset v2a --subset sapien --split-joint --with-state
@@ -34,7 +37,7 @@ import pandas as pd
 METRIC_FIELDS = [
     ("angle", "Axis (deg)"),
     ("distance", "Position (cm)"),
-    ("joint_state_error", "State"),          # only meaningful for v2a
+    ("joint_state_error", "State (deg/cm)"),  # deg for revolute, cm for prismatic
     ("CD_whole", "CD-w (cm)"),
     ("CD_dynamic", "CD-m (cm)"),
     ("CD_static", "CD-s (cm)"),
@@ -153,7 +156,10 @@ def markdown_table(group_stats, fields, paper_ref=None):
             if c == 0 or (isinstance(mean, float) and np.isnan(mean)):
                 cells.append("—")
             else:
-                cells.append(f"{fmt(mean)} ± {fmt(std)}")
+                cell = f"{fmt(mean)} ± {fmt(std)}"
+                if c != cnt:  # fewer scenes have this metric (e.g. State-P)
+                    cell += f" (n={c})"
+                cells.append(cell)
         row += " | ".join(cells) + " |"
         lines.append(row)
 
@@ -206,9 +212,6 @@ def main():
     fields = [f for f, _ in METRIC_FIELDS]
     if not args.with_state:
         fields = [f for f in fields if f != "joint_state_error"]
-    # videoartgs never has State
-    if args.dataset == "videoartgs":
-        fields = [f for f in fields if f != "joint_state_error"]
 
     df, n = load_all(
         args.base, args.dataset, args.subset, args.iteration,
@@ -217,6 +220,10 @@ def main():
     )
 
     print(f"Found {n} result.csv files for {args.dataset}/{args.subset}\n")
+
+    # drop fields absent from every result.csv (e.g. State-R/P on v2a, whose
+    # eval writes only the single-joint joint_state_error)
+    fields = [f for f in fields if not df[f].isna().all()]
 
     # per-scene dump
     show_cols = ["scene"] + (["joint_type"] if args.split_joint else []) + fields

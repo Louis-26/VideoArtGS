@@ -46,10 +46,10 @@ for i in "${!scenes[@]}"; do
     echo "🎬 Training scene: ${scene}"
     model_path=${OUTPUT_DIR}/${dataset}/${subset}/${scene}/${model_name}
     
-    if [ -d "${model_path}/ours_${iter}/vis_mask/" ]; then
-        echo "⏭️ [SKIP] Scene ${scene} already rendered."
-        continue
-    fi
+    # if [ -d "${model_path}/ours_${iter}/vis_mask/" ]; then
+    #     echo "⏭️ [SKIP] Scene ${scene} already rendered."
+    #     continue
+    # fi
     
     # Precise GPU indexing using loop index 'i'
     GPU_IDX=${GPUS[$((i % NUM_GPUS))]}

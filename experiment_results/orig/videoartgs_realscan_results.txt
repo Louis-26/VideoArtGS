@@ -1,0 +1,19 @@
+Found 7 result.csv files for videoartgs/realscan
+
+=== Per-scene metrics ===
+           scene   angle  distance  CD_whole  CD_dynamic  CD_static
+            cab1  7.7104    0.1622  100.0000    100.0000   100.0000
+       cab_1r_1p  4.4116    0.7645  100.0000    100.0000   100.0000
+        chair_1r 14.5877    1.2506  100.0000    100.0000   100.0000
+coffeemachine_2r 41.8316    0.6175  100.0000    100.0000   100.0000
+          mac_1r 77.6686    0.6367  100.0000    100.0000   100.0000
+    microwave_1r  2.9861    0.1449  100.0000    100.0000   100.0000
+   microwave_ego  3.3683    1.0162  100.0000    100.0000   100.0000
+
+=== Markdown table ===
+
+| Method | Axis (deg) | Position (cm) | CD-w (cm) | CD-m (cm) | CD-s (cm) |
+|---|---|---|---|---|---|
+| Ours (reproduced) (n=7) | 21.795 ± 28.193 | 0.656 ± 0.409 | 100.000 ± 0.000 | 100.000 ± 0.000 | 100.000 ± 0.000 |
+| Ours (paper) | 0.340 ± 0.800 | 0.100 ± 0.100 | 0.090 ± 0.090 | 0.260 ± 0.610 | 0.240 ± 0.580 |
+

@@ -46,7 +46,7 @@ for i in "${!scenes[@]}"; do
     model_path="${OUTPUT_DIR}/${dataset}/${subset}/${scene}/${model_name}"
     
     # Check if the initialization has already completed
-    if [ -d "${model_path}/deform/iteration_1" ]; then
+    if [ -d "${model_path}/deform/iteration_10000" ]; then
         echo "⏭️ [SKIP] Scene ${scene} deformation initialization already completed."
         continue
     fi

@@ -1,2 +1,4 @@
-- add parameter to control dataset in scripts/ folder to determine dataset+subset, to avoid three folders
-- finish the total 72 scene training for v2a
+- ✅figure out how to consider joint state error for videoartgs dataset
+- ⌛understand the preprocess procedure(given only the monocular dataset)
+    - ✅complete videoartgs sapien/realscan
+    - ⌛pending v2a sapien dataset access approval   

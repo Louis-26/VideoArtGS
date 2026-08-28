@@ -1,26 +1,46 @@
 # VideoArtGS pipeline
-Data:
+
+## Dataset Preprocessing
+[dataset preprocess steps](./dataset_preprocess.md)
+
+## Dataset Overview
+
+Preprocessed dataset includes the following information for each scene:
 - multiview monocular video frames 
 - ground truth camera intrinsics/poses frame-by-frame
-- depth images/camera poses(optional) from VGGT with video frames
+- depth images/camera poses(**optional**) from VGGT with video frames
 - 3D tracking trajectories from TAPIP3D with depth images and video frames
 - ground truth mesh point cloud for both the whole object and each part
 - ground truth articulation parameters(including articulation axis/origin/range, part number/centers/joint type/time-variant joint states)
 
-## Preliminary step
-Overview:
-Preprocess the multiview monocular video frames to obtain depth images and camera poses from VGGT, and 3D tracking trajectories from TAPIP3D.
+Classification:
+- VideoArtGS-20-sapien (videoartgs), by mode `1`
+- VideoArtGS-20-realscan (videoartgs), by mode `2`
+- VideoArtGS-v2a-sapien (v2a), by mode `3`
 
-Input:
-- multiview monocular video frames
+switch the mode number in $\{1, 2, 3\}$ to change the dataset
 
-Model:
-- Pretrained VGGT model
-- Pretrained TAPIP3D model
-
-Output:
-- depth images and camera poses from VGGT *given the multiview monocular video frames*
-- 3D tracking trajectories from TAPIP3D *given depth images and multiview monocular video frames*
+## Overall execution
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch videoartgs_pipeline.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs \
+    --save_dir orig
+```
+- independent GPU
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/videoartgs_pipeline.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs \
+    --save_dir orig
+```
 
 
 ## step 1: canonical gaussians initialization
@@ -54,16 +74,24 @@ Output:
 - Trained 3D **Canonical** Gaussian Primitives, $\mathcal{G}^c=\{G_i^c \}_{i=1}^N$
 - optimized canonical Gaussian model checkpoints(.ply) saved in different iterations(5000, 10000, 15000, 20000)
 
-execution:
+Execution:
 - SLURM
 ```bash
 cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
-sbatch init_cano.sh 1 1 outputs 1 
+sbatch init_cano.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs 
 ```
 - independent GPU
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-bash scripts/init_cano.sh 1 1 outputs 1
+bash scripts/init_cano.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs
 ```
 
 
@@ -143,12 +171,20 @@ execution:
 - SLURM
 ```bash
 cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
-sbatch init_deform.sh 1 1 outputs 1 
+sbatch init_deform.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs
 ```
 - independent GPU
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-bash scripts/init_deform.sh 1 1 outputs 1
+bash scripts/init_deform.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs
 ```
 
 
@@ -299,7 +335,8 @@ sbatch eval.sh \
     --use_multi 1 \
     --keep_logs 1 \
     --mode 1 \
-    --output_dir outputs
+    --output_dir outputs \
+    --save_dir orig
 ```
 - independent GPU
 ```bash
@@ -308,5 +345,6 @@ bash scripts/eval.sh \
     --use_multi 1 \
     --keep_logs 1 \
     --mode 1 \
-    --output_dir outputs
+    --output_dir outputs \
+    --save_dir orig \
 ```

@@ -72,7 +72,7 @@ for i in "${!scenes[@]}"; do
 
     if [ "$USE_MULTI" -eq 1 ]; then
         echo "➡️  [Dispatch] Deploying scene ${scene} to GPU ${GPU_IDX} (background)"
-        eval "$CMD" > logs/logs_train_${scene}.txt 2>&1 &  
+        eval "$CMD" > logs/logs_train_PAT_${scene}.txt 2>&1 &  
         sleep 2 
 
         # Batch waiting mechanism
@@ -82,7 +82,7 @@ for i in "${!scenes[@]}"; do
         fi
     else
         echo "➡️  [Sequential] Deploying scene ${scene} to GPU ${GPU_IDX}"
-        eval "$CMD"  
+        eval "$CMD" > logs/logs_train_PAT_${scene}.txt 2>&1
     fi
 done
 

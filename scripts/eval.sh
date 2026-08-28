@@ -12,7 +12,7 @@ MODE=1
 USE_MULTI=0
 KEEP_LOGS=0
 OUTPUT_DIR="outputs"
-
+SAVE_DIR="orig"
 MIN_MEM=2048               
 
 while [[ "$#" -gt 0 ]]; do
@@ -21,6 +21,7 @@ while [[ "$#" -gt 0 ]]; do
         --keep_logs) KEEP_LOGS="$2"; shift ;;
         --mode) MODE="$2"; shift ;;
         --output_dir) OUTPUT_DIR="$2"; shift ;;
+        --save_dir) SAVE_DIR="$2"; shift ;;
         *) echo "❌ Error: Unknown parameter: $1"; exit 1 ;;
     esac
     shift
@@ -83,9 +84,21 @@ for i in "${!scenes[@]}"; do
 done
 
 wait
+
+# generate the evaluation metrics
+SUMMARY_FLAGS="--with-state"
+if [ "${dataset}" == "v2a" ]; then
+    SUMMARY_FLAGS="${SUMMARY_FLAGS} --split-joint"
+fi
+
+mkdir -p experiment_results/"$SAVE_DIR"
+
 python utils/results_summary.py \
-    --dataset videoartgs \
-    --subset sapien > "experiment_results/${dataset}_${subset}_results.txt" 2>&1
+    --dataset "${dataset}" \
+    --subset "${subset}" \
+    --output_dir "${OUTPUT_DIR}" \
+    ${SUMMARY_FLAGS} \
+    > "experiment_results/${SAVE_DIR}/${dataset}_${subset}_results.txt" 2>&1
 
 echo "🎉 Evaluation finished successfully!"
 

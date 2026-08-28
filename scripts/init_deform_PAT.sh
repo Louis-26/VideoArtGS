@@ -12,7 +12,7 @@ MODE=1
 USE_MULTI=0
 KEEP_LOGS=0
 OUTPUT_DIR="outputs"
-MIN_MEM=15360       
+MIN_MEM=5120       
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -46,10 +46,10 @@ for i in "${!scenes[@]}"; do
     model_path="${OUTPUT_DIR}/${dataset}/${subset}/${scene}/${model_name}"
     
     # Check if the PAT initialization has already completed
-    if [ -d "${model_path}/deform/iteration_1" ]; then
-        echo "⏭️ [SKIP] Scene ${scene} PAT deformation initialization already completed."
-        continue
-    fi
+    # if [ -d "${model_path}/deform/iteration_1" ]; then
+    #     echo "⏭️ [SKIP] Scene ${scene} PAT deformation initialization already completed."
+    #     continue
+    # fi
     
     # Precise GPU indexing using loop index 'i'
     GPU_IDX=${GPUS[$((i % NUM_GPUS))]}
@@ -60,7 +60,7 @@ for i in "${!scenes[@]}"; do
             --subset ${subset} \
             --scene_name ${scene} \
             --model_path ${model_path} \
-            --iterations 10000 \
+            --iterations 1 \
             --seed ${seed}"
 
     if [ "$USE_MULTI" -eq 1 ]; then

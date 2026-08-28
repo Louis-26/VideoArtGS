@@ -36,15 +36,50 @@ Prismatic Joint Estimation (n=29)
 |  Paper | 0.350 ± 0.450 | 1.030 ± 2.460 | 0.290 ± 0.240 | 0.400 ± 0.320 | 1.110 ± 2.110 |
 
 
-### Table 2: Quantitative evaluation on VideoArtGS-20 (videoartgs) dataset
+### Table 2: Quantitative evaluation on VideoArtGS-20 (videoartgs) sapien dataset
+=== Per-scene metrics ===
+ scene  angle  distance  CD_whole  CD_dynamic  CD_static
+100481 0.0134    0.0178    0.1037      0.0199     0.1031
+101284 0.1034    0.0686    0.0099      0.0034     0.0083
+101287 0.2506    0.0513    0.0099      0.0034     0.0067
+101808 3.7933    0.0667    0.1036      0.0167     0.0967
+101908 0.1104    0.0951    0.0957      0.0126     0.0943
+103015 0.1610    0.2247    0.0480      0.0104     0.0448
+103811 0.2342    0.0000    0.4967      3.7152     0.5570
+ 10489 0.0878    0.2346    0.0661      0.0088     0.0524
+ 10655 0.0150    0.1645    0.0826      0.0134     0.0650
+  1280 0.7231    0.3292    0.0295      0.0888     0.0897
+   168 0.4328    0.1591    0.0281      1.0380     3.1172
+ 25493 0.1082    0.0000    0.0609      0.1570     0.1113
+ 30666 0.1309    0.0000    0.1844      1.1252     0.2226
+ 31249 0.0716    0.0118    0.0958      0.1937     0.1055
+ 45194 0.0932    0.0287    0.1021      0.0127     0.0846
+ 45503 0.0189    0.0912    0.0832      0.0116     0.0705
+ 45612 0.1160    0.0511    0.0738      0.0173     0.0608
+ 47648 0.2064    0.0677    0.0615      0.2630     0.0599
+  8961 0.0215    0.0397    0.0359      0.0224     0.0178
+  9016 0.0962    0.3188    0.0322      0.0147     0.0254
+
+=== Markdown table ===
+
 | Method | Axis (deg) | Position (cm) | CD-w (cm) | CD-m (cm) | CD-s (cm) |
 |---|---|---|---|---|---|
-| Reproduced(PAT) | 26.918 ± 23.923 | 4.802 ± 8.523 | 0.110 ± 0.113 | 4.615 ± 8.158 | 0.883 ± 1.724 |
-| Reproduced | 0.333 ± 0.827 | 0.099 ± 0.103 | 0.096 ± 0.099 | 0.311 ± 0.738 | 0.243 ± 0.621 |
-| Paper | 0.340 ± 0.800 | 0.100 ± 0.100 | 0.090 ± 0.090 | 0.260 ± 0.610 | 0.240 ± 0.580 |
+| Ours (reproduced) (n=20) | 0.339 ± 0.830 | 0.101 ± 0.103 | 0.090 ± 0.104 | 0.337 ± 0.859 | 0.250 ± 0.685 |
+| Ours (paper) | 0.340 ± 0.800 | 0.100 ± 0.100 | 0.090 ± 0.090 | 0.260 ± 0.610 | 0.240 ± 0.580 |
+
+### Table 3: Quantitative evaluation on VideoArtGS-20 (videoartgs) realscan dataset
 
 
-## VideoArtGS+PAT
+## Qualitative Results
+All results have been completed under `outputs/{DATASET}/sapien/{SCENE}/final/train/ours_20000`, where `DATASET` is either `v2a` or `videoartgs`, and `SCENE` is the corresponding scene name, as 
+- `{SCENE}_colored.ply` for colored mesh segmentation results
+- `{SCENE}_video.gif` for reconstructed object gif results
+- `{SCENE}_video.mp4` for reconstructed object video results
+
+This summarizes experimental results for figure 2 and figure 3 from the paper.
+
+# VideoArtGS+PAT
+## Quantitative Results
 With 20 scenes in VideoArtGS-20 dataset.
 performance per scene
 === Per-scene metrics ===
@@ -72,10 +107,3 @@ performance per scene
 
 
 
-# Qualitative Results
-All results have been completed under `outputs/{DATASET}/sapien/{SCENE}/final/train/ours_20000`, where `DATASET` is either `v2a` or `videoartgs`, and `SCENE` is the corresponding scene name, as 
-- `{SCENE}_colored.ply` for colored mesh segmentation results
-- `{SCENE}_video.gif` for reconstructed object gif results
-- `{SCENE}_video.mp4` for reconstructed object video results
-
-This summarizes experimental results for figure 2 and figure 3 from the paper.

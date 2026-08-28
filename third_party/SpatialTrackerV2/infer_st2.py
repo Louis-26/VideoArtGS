@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
             
             with torch.no_grad():
-                with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+                with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                     predictions = model(video_tensor[None].cuda())
             poses, intrinsic = predictions["poses_pred"], predictions["intrs"]
             depth_map, depth_conf = predictions["points_map"][..., 2], predictions["unc_metric"]

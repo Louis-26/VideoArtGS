@@ -1,4 +1,15 @@
-current progress: finish step 1-5
+Environment setup pipeline
+
+If packed environment exists
+```bash
+# change to the actual path
+mkdir -p /research/cvl-ylu174/Anaconda3/envs/videoartgs
+tar -xzf ~/research/VideoArtGS/videoartgs.tar.gz -C /research/cvl-ylu174/Anaconda3/envs/videoartgs
+source /research/cvl-ylu174/Anaconda3/envs/videoartgs/bin/activate   
+conda-unpack
+```
+
+
 # step 1: create environment
 ```bash
 cd $(git rev-parse --show-toplevel)
@@ -15,6 +26,7 @@ pip install "protobuf<5" diffusers yacs ninja nvitop
 pip install "setuptools<70" wheel
 conda install git -y
 conda install -c conda-forge ffmpeg -y
+conda install -c conda-forge pv -y
 
 # continue
 pip install git+https://github.com/facebookresearch/pytorch3d.git@stable --no-build-isolation
@@ -50,12 +62,15 @@ pip install git+https://gitlab.inria.fr/bkerbl/simple-knn.git --no-build-isolati
 
 # if not working, use
 MAX_JOBS=4 pip install git+ssh://git@https://gitlab.inria.fr/bkerbl/simple-knn.git --no-build-isolation
+
+# tool preprocessing
+pip install openai
 ```
 Meanwhile, set up the external hardware environment
 ```bash
 which nvcc && nvcc --version # ensure nvcc is enabled
 echo "export CUDA_HOME=$CONDA_PREFIX" >> ~/.bashrc   
-echo "export TCNN_CUDA_ARCHITECTURES=90" >> ~/.bashrc
+echo "export TCNN_CUDA_ARCHITECTURES=90" >> ~/.bashrc # use the actual CUDA architecture based on hardware devices
 source ~/.bashrc
 ```
 
@@ -83,8 +98,10 @@ mv *_joint_*_bg_view_* sapien/
 
 cd "$(git rev-parse --show-toplevel)/data"
 rm -rf *.zip && rm -rf sapien/
+mkdir -p v2a/sapien && mv v2a/*_joint_*_bg_view_* v2a/sapien/
+
 ### alternatively
-cd SLURM_execution/SLURM_script
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
 sbatch data_prepare.sh
 ```
 
@@ -98,10 +115,15 @@ ls -1 | sed "s/.*/'&'/" | paste -sd " " | sed 's/,/, /g'
 download PAT model checkpoint
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-wget https://huggingface.co/mikaelaangel/partfield-ckpt/resolve/main/model_objaverse.ckpt
 mkdir -p particulate/model_ckpt
-mv model_objaverse.ckpt particulate/model_ckpt/
+wget -O particulate/model_ckpt/model_objaverse.pt \
+    https://huggingface.co/mikaelaangel/partfield-ckpt/resolve/main/model_objaverse.ckpt
+
+wget -O particulate/model_ckpt/pat_model.pt \
+    https://huggingface.co/rayli/Particulate/resolve/main/model.pt
 ```
+
+
 
 
 # step 3: train

@@ -46,5 +46,5 @@ if __name__ == "__main__":
     scene_path = os.path.join(data_dir, video_name)
     image_dir = os.path.join(scene_path, "images")
     os.makedirs(image_dir, exist_ok=True)
-    os.system(f"rm {image_dir}/*")
+    # os.system(f"rm {image_dir}/*")
     extract_frames(video_path, image_dir, interval=args.interval, resize=args.resize)

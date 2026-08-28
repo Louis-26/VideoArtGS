@@ -1,21 +1,27 @@
 # VideoArtGS + Part Articulation Transformer (PAT)
 The main distinction between VideoArtGS and VideoArtGS+PAT is that in the new version, we no longer rely on tedious preprocessing steps including depth maps 3D tracking trajectories extraction.
 
-## Data
+## Dataset Preprocessing
+[dataset preprocess steps](./dataset_preprocess.md)
 
-Model Input(feedable for the model)
-- ground truth multiview monocular video frames 
+## Dataset Overview
+
+Preprocessed dataset includes the following information for each scene:
+- multiview monocular video frames $I_t$ for $t=1, \dots, T$
+- depth images/camera poses(**optional**) from VGGT with video frames
+- 3D tracking trajectories from TAPIP3D with depth images and video frames
 - ground truth camera intrinsics/poses frame-by-frame
-
-Reference Ground Truth(not feedable for the model)
 - ground truth mesh point cloud for both the whole object and each part
-- ground truth segmentation parameters(part number/centers)
-- ground truth articulation parameters(including direction axis/origin/joint type)
-- ground truth motion parameters(time-variant joint states)
+- ground truth articulation parameters(including articulation axis/origin/range, part number/centers/joint type/time-variant joint states)
+- ground truth time-variant joint states for each frame, (revolute/prismatic)
 
-## Preliminary step
-- foreground mask extraction for each frame
-- Utilize COLMAP to extract initial point cloud for the initial 3DGS data backbone with **first M static** video frames
+Classification:
+- VideoArtGS-20-sapien (videoartgs), by mode `1`
+- VideoArtGS-20-realscan (videoartgs), by mode `2`
+- VideoArtGS-v2a-sapien (v2a), by mode `3`
+
+switch the mode number in $\{1, 2, 3\}$ to change the dataset
+
 
 
 ## step 1: canonical gaussians initialization
@@ -29,8 +35,8 @@ Corresponding scripts
 
 Input: 
 - **First M static** multiview monocular video frames ${I_t}_{t=1}^M$
-- ground truth camera poses $P$, (extrinsic matrix $ E = P^{-1} \in \mathbb{R}^{4 \times 4}$) and camera intrinsic matrix $K \in \mathbb{R}^{3 \times 3}$ for each selected frame
-- initial point cloud derived from COLMAP with **first M static** video frames
+- ground truth camera poses $P$, (extrinsic matrix $ E = P^{-1} \in \mathbb{R}^{4 \times 4}$) for each selected frame and camera intrinsic matrix $K \in \mathbb{R}^{3 \times 3}$ 
+- initial fused point cloud with **first M static** video frames
 
 
 
@@ -49,11 +55,30 @@ Output:
 - Trained 3D **Canonical** Gaussian Primitives, $\mathcal{G}^c=\{G_i^c \}_{i=1}^N$
 - optimized canonical Gaussian model checkpoints(.ply) saved in different iterations(5000, 10000, 15000, 20000)
 
+Execution:
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch init_cano.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT
+```
+- independent GPU
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/init_cano.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT
+```
 
 ## step 2: Part Articulation Transformer (PAT) initialization and finetuning
 Overview: Initialize the Part Articulation Transformer (PAT) with the customized dataset, then finetune it to enhance the inference performance.
 
-Corresponding scripts
+Corresponding scripts:
 - [PAT_finetune.py](../PAT/PAT_finetune.py)
 
 
@@ -76,7 +101,10 @@ Output:
 Overview:
 Derive articulation parameters initialization from Part Articulation Transformer(PAT), with the input of Gaussian mean vector and other optional input(**TODO**)
 
-
+Corresponding scripts:
+- [init_deform_PAT.py](../PAT/init_deform_PAT.py)
+- [init_deform_PAT.sh](../scripts/init_deform_PAT.sh)
+- [SLURM init_deform_PAT.sh](../SLURM_execution/SLURM_script/init_deform_PAT.sh)
 
 Input:
 - Gaussian Primitives core parameters(potentially other inputs)
@@ -98,7 +126,6 @@ Initialized segmentation parameters prior for $S_\Phi$, and articulation paramet
     - part radial extent(dist_max) for each part
     - number of parts $K$
     - part center $c_k$ with $k \in 1, ..., K$
-
 
 
 
@@ -149,6 +176,25 @@ Model:
 Output:
 - Initialized and trained Deformation field $\mathcal{F}$
 
+Execution:
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch init_deform_PAT.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT
+```
+- independent GPU
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/init_deform_PAT.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT
+```
 
 ## step 6: canonical gaussian and deformation field joint training
 Overview:
@@ -176,6 +222,27 @@ Training:
 Output:
 - Updated Gaussian Primitives
 - Updated Deformation field(articulation parameters $A_{\Psi}$ and segmentation module)
+
+
+Execution:
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch train_PAT.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT
+```
+- independent GPU
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/train_PAT.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT
+```
 
 ## step 7: 3D deformed gaussians rendering
 Overview:
@@ -206,6 +273,43 @@ Output:
 - generated mp4/gif for the articulated scene
 - colored mesh visualization files .ply(`meshes/`: per-part + whole, via TSDF) 
 
+Execution:
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch render.sh \
+    --use_multi 0 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT
+    
+sbatch render_mask.sh \
+    --use_multi 0 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT
+```
+- independent GPU
+```bash
+# need to disable multi-GPU
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/render.sh \
+    --use_multi 0 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT
+
+bash scripts/render_mask.sh \
+    --use_multi 0 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT
+```
+
+
+
+
+
 ## step 8: evaluation
 Overview:
 Compute quantitative evaluation metrics for articulation estimation and geometry reconstruction.
@@ -228,3 +332,24 @@ Output:
 - chamfer distance between predicted and ground truth meshes for the whole scene (CD-w)
 - chamfer distance between predicted and ground truth meshes for the movable parts (CD-m)
 - chamfer distance between predicted and ground truth meshes for the static parts (CD-s)
+Execution:
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch eval.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT \
+    --save_dir PAT 
+```
+- independent GPU
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/eval.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT \
+    --save_dir PAT
+```

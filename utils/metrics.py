@@ -336,6 +336,46 @@ def read_gt(gt_path):
     return ret_list
 
 
+def read_part_info_states(part_info_path, gt_joint_list):
+    """Per-frame GT joint states from gt/part_info.json (videoartgs sapien).
+
+    Each entry's part_move maps frame -> 3-vector where only the axis dim is
+    non-zero (radians for revolute/continuous, meters for prismatic).
+    Returns {gt_joint_idx: [total_frames] array}. part_info idx values usually
+    equal the mobility_v2 ids kept by read_gt, but not always (103811 is off by
+    one because of a junk entry), so the two sides are paired by ascending-idx
+    rank rather than by exact id.
+    """
+    with open(part_info_path, 'r') as f:
+        info = json.load(f)
+    seqs = []
+    for item in sorted(info, key=lambda x: x['idx']):
+        vals = np.array([item['part_move'][k] for k in sorted(item['part_move'], key=int)])
+        seqs.append(vals.sum(-1))
+    gt_ids = sorted(j['idx'] for j in gt_joint_list)
+    assert len(gt_ids) == len(seqs), \
+        f'{part_info_path}: {len(seqs)} part_info joints vs {len(gt_ids)} gt joints'
+    return dict(zip(gt_ids, seqs))
+
+
+def joint_state_metric(pred_seq, gt_seq, joint_type):
+    """Joint state error with the same convention as the v2a branch in eval.py:
+    states relative to the first frame, per-frame sign alignment (absorbs axis
+    direction ambiguity). Returns degrees for revolute, cm for prismatic."""
+    gt = np.asarray(gt_seq, dtype=np.float64)
+    pred = np.asarray(pred_seq, dtype=np.float64)
+    gt = gt - gt[0:1]
+    pred = pred - pred[0:1]
+    if joint_type == 'r':
+        gt = np.mod(gt + np.pi, 2 * np.pi) - np.pi
+        pred = np.mod(pred + np.pi, 2 * np.pi) - np.pi
+    sign = np.sign(gt * pred)
+    pred = pred * sign
+    if joint_type == 'p':
+        return float(100 * np.mean(np.abs(pred - gt)))
+    return float(np.mean(np.abs(np.rad2deg(pred) - np.rad2deg(gt))))
+
+
 def read_joint_infos(joint_infos_path):
     with open(joint_infos_path, 'r') as f:
         info = json.load(f)

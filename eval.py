@@ -76,6 +76,34 @@ def evaluate(args, name, iteration, eval_app=False):
 
         output['joint_state_error'] = [joint_state_error]
 
+    # videoartgs sapien 
+    if os.path.exists(f'{args.source_path}/gt/part_info.json') and 'videoartgs' in args.source_path:
+        part_info_path = f'{args.source_path}/gt/part_info.json'
+        joint_value_path = os.path.join(save_dir, "joint_value.npy")
+        if ('joint_state_error' not in output.columns and os.path.exists(part_info_path)
+                and os.path.exists(joint_value_path)):
+            theta = np.load(joint_value_path)  # (1 + num_pred_joints, n_dyn_frames), row 0 = static base
+            n_dyn = theta.shape[1]
+            gt_states = read_part_info_states(part_info_path, gt_joint_list)
+            state_errors, state_types = [], []
+            for i, gt_joint in enumerate(gt_joint_list):
+                if i < len(perm):
+                    err = joint_state_metric(theta[perm[i] + 1],
+                                            gt_states[gt_joint['idx']][-n_dyn:],
+                                            gt_joint['joint_type'])
+                else:  # missing predicted joint: same spirit as the 90 deg / 100 cm axis penalty
+                    err = 90. if gt_joint['joint_type'] == 'r' else 100.
+                state_errors.append(err)
+                state_types.append(gt_joint['joint_type'])
+                output[f'joint_state_error_{i}'] = [err]
+            output['joint_state_error'] = [float(np.mean(state_errors))]
+            r_errs = [e for e, t in zip(state_errors, state_types) if t == 'r']
+            p_errs = [e for e, t in zip(state_errors, state_types) if t == 'p']
+            if r_errs:
+                output['joint_state_error_r'] = [float(np.mean(r_errs))]  # deg
+            if p_errs:
+                output['joint_state_error_p'] = [float(np.mean(p_errs))]  # cm
+
     for i, d in enumerate(d_list):
         output[f'CD_dynamic_{i}'] = [d]
         output[f'angle_{i}'] = [results_list[i][0]]

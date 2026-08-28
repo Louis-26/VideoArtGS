@@ -55,7 +55,7 @@ class GPT:
                     "name": "door",
                     "joint": "hinge",
                     "parent": 0
-                }
+                }heavy
             ]
             ```
             """.strip()

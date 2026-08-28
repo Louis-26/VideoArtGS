@@ -1,5 +1,4 @@
-outputs/*
-outputs_PAT/*
+
 .vscode/*
 __pycache__/*
 __pycache__/
@@ -18,7 +17,7 @@ utils/pointnet_lib/dist
 utils/pointnet_lib/build
 ztosave/
 Depth-Anything-V2/
-data
+data/
 ztest/
 
 # third party
@@ -28,6 +27,16 @@ third_party/TAPIP3D/third_party/pointnet_lib/build
 third_party/TAPIP3D/third_party/pointops2/pointops2.egg-info
 third_party/TAPIP3D/third_party/pointops2/build
 third_party/TAPIP3D/third_party/pointops2/dist
+third_party/sam2
+
+# datasets
+new_data/
+raw_data/
+
+# outputs
+outputs/*
+outputs_PAT/*
+outputs_PAT_1/
 
 # git scripts
 git_script/
@@ -35,11 +44,14 @@ git_script/
 # SLURM outputs
 SLURM_execution/
 
+# debug
+# debug/
 
+# checkpoints and environment
+particulate/model_ckpt/
 *.ckpt
-
 videoartgs.tar.gz
-
+.env
 
 # logs
 logs/
