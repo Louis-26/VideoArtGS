@@ -54,10 +54,11 @@ UP_DIR_ROTATIONS = {
 
 
 class PAT_Initializer:
-    def __init__(self, args, dataset_args, opt_args):
+    def __init__(self, args, dataset_args, opt_args, pat_model_path):
         self.args = args
         self.dataset_args = dataset_args
         self.opt_args = opt_args
+        self.pat_model_path = pat_model_path
 
         # 1. Load canonical point cloud (world frame) together with its normals.
         ply_path = os.path.join(self.args.source_path, "point_cloud.ply")
@@ -164,7 +165,7 @@ class PAT_Initializer:
             motion_representation='per_point_closest',
         ).cuda()
 
-        ckpt_path = os.path.join(ROOT, "particulate/model_ckpt/pat_model.pt")
+        ckpt_path = os.path.join(ROOT, self.pat_model_path)
         if not os.path.exists(ckpt_path):
             raise FileNotFoundError(f"PAT checkpoint missing at {ckpt_path}. Please download it.")
         pat_model.load_state_dict(torch.load(ckpt_path, map_location='cpu'), strict=True)
@@ -298,7 +299,8 @@ if __name__ == "__main__":
                         help="Which world axis points up; input is rotated to PAT's +Z-up training frame")
     parser.add_argument('--pat_match_dist_ratio', type=float, default=0.3,
                         help="Max joint-center-to-part-centroid distance for an accepted match, as a fraction of the object's longest bbox side")
-
+    parser.add_argument('--PAT_model_pth', type=str, default="particulate/model_ckpt/pat_model.pt",
+                        help="Path to the pre-trained PAT model")
     args = parser.parse_args(sys.argv[1:])
     args.source_path = f"{args.source_path}/{args.dataset}/{args.subset}/{args.scene_name}"
 
@@ -308,5 +310,6 @@ if __name__ == "__main__":
     initializer = PAT_Initializer(
         args=args,
         dataset_args=lp.extract(args),
-        opt_args=op.extract(args)
+        opt_args=op.extract(args),
+        pat_model_path=args.PAT_model_pth
     )

@@ -23,6 +23,30 @@ Classification:
 switch the mode number in $\{1, 2, 3\}$ to change the dataset
 
 
+## Overall execution
+- SLURM
+```bash
+cd "$(git rev-parse --show-toplevel)/SLURM_execution/SLURM_script"
+sbatch videoartgs_pat_pipeline.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT \
+    --save_dir PAT \
+    --model_pth particulate/model_ckpt/updated_pat_model.pt
+```
+- independent GPU
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/videoartgs_pat_pipeline.sh \
+    --use_multi 1 \
+    --keep_logs 1 \
+    --mode 1 \
+    --output_dir outputs_PAT \
+    --save_dir PAT \
+    --PAT_model_pth particulate/model_ckpt/updated_pat_model.pt
+```
+
 
 ## step 1: canonical gaussians initialization
 Overview:
@@ -96,6 +120,10 @@ LoRA update with the 15 training scenes
 Output:
 - finetuned Part Articulation Transformer (PAT) model 
 
+Execution:
+```bash
+python PAT/PAT_finetune.py 
+```
 
 ## step 3: Part Articulation Transformer (PAT) Inference
 Overview:
@@ -109,6 +137,9 @@ Corresponding scripts:
 Input:
 - Gaussian Primitives core parameters(potentially other inputs)
     - position $\mu \in \mathbb{R}^{3}$
+
+Methodology(to be adjusted later):
+- Given the joint type, segmentation number, predict the articulation axis direction and origin, and joint motion range for each movable part
 
 Model:
 Finetuned Part Articulation Transformer(PAT) model from [PARTICULATE](https://ruiningli.com/particulate) 
@@ -193,7 +224,8 @@ bash scripts/init_deform_PAT.sh \
     --use_multi 1 \
     --keep_logs 1 \
     --mode 1 \
-    --output_dir outputs_PAT
+    --output_dir outputs_PAT \
+    --PAT_model_pth particulate/model_ckpt/updated_pat_model.pt
 ```
 
 ## step 6: canonical gaussian and deformation field joint training

@@ -123,7 +123,12 @@ wget -O particulate/model_ckpt/pat_model.pt \
     https://huggingface.co/rayli/Particulate/resolve/main/model.pt
 ```
 
-
+Download particulate and Partfield repository
+```bash
+cd "$(git rev-parse --show-toplevel)"
+git clone https://github.com/nv-tlabs/PartField.git && cd PartField && rm -rf .git
+git clone https://github.com/RuiningLi/particulate.git && cd particulate && rm -rf .git
+```
 
 
 # step 3: train

@@ -37,12 +37,13 @@ raw_data/
 outputs/*
 outputs_PAT/*
 outputs_PAT_1/
+outputs_PAT_2/
 
 # git scripts
 git_script/
 
 # SLURM outputs
-SLURM_execution/
+# SLURM_execution/
 
 # debug
 # debug/
