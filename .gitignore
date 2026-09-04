@@ -8,7 +8,7 @@ debug.sh
 debug.py
 *.slurm
 *.out
-*.png
+# *.png
 *.pth
 
 # utils
@@ -38,6 +38,8 @@ outputs/*
 outputs_PAT/*
 outputs_PAT_1/
 outputs_PAT_2/
+outputs_PAT_3/
+outputs_*/
 
 # git scripts
 git_script/

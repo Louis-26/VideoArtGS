@@ -37,10 +37,6 @@ class Arguments(tap.Tap):
     depth_model: str = "moge"
     n_query_frames: int = 4
     n_query_points: int = 8192
-    # VideoArtGS addition: also export the tracker's internal per-track features
-    # (384-d EfficientUpdateFormer hidden state, last refinement iteration, averaged
-    # over the sliding windows and their frames) as `track_feats` (N, 384).
-    save_track_feats: bool = False
 
 
 def prepare_inputs(args, input_path: str, inference_res: Tuple[int, int], support_grid_size: int, num_threads: int = 8, device: str = "cpu"):
@@ -120,38 +116,6 @@ if __name__ == "__main__":
     model = load_model(args.checkpoint)
     model.to(args.device)
 
-    # ---- VideoArtGS addition: capture the updater hidden state via a forward hook ----
-    # point_updater.flow_head is Linear(hidden=384 -> 3); its input is the (B, N, T, 384)
-    # token tensor of one refinement iteration on one 16-frame window. The hook fires
-    # num_iters times per window; only the last iteration is accumulated.
-    feat_acc = {"sum": None, "cnt": 0, "calls": 0}
-    if args.save_track_feats:
-        def _flow_head_hook(module, inp, out):
-            feat_acc["calls"] += 1
-            if feat_acc["calls"] % args.num_iters != 0:
-                return
-            tokens = inp[0].detach().float()          # (B, N, T, C)
-            feat = tokens[0].mean(dim=1)               # (N, C): mean over the window frames
-            if feat_acc["sum"] is None:
-                feat_acc["sum"] = feat.clone()
-                feat_acc["cnt"] = 1
-            else:
-                assert feat_acc["sum"].shape == feat.shape, (feat_acc["sum"].shape, feat.shape)
-                feat_acc["sum"] += feat
-                feat_acc["cnt"] += 1
-        model.point_updater.flow_head.register_forward_hook(_flow_head_hook)
-        logger.info(f"Track-feature hook registered on point_updater.flow_head (hidden={model.point_updater.hidden_size})")
-
-    def pop_track_feats():
-        """Return the (N, C) per-track feature accumulated since the last call."""
-        if not args.save_track_feats:
-            return None
-        assert feat_acc["sum"] is not None and feat_acc["calls"] % args.num_iters == 0, feat_acc["calls"]
-        feat = (feat_acc["sum"] / feat_acc["cnt"]).cpu()
-        feat_acc["sum"], feat_acc["cnt"], feat_acc["calls"] = None, 0, 0
-        return feat
-    # ---- end addition ----
-
     inference_res = (int(model.image_size[0] * np.sqrt(args.resolution_factor)), int(model.image_size[1] * np.sqrt(args.resolution_factor)))
     print("inference_res", inference_res)
     model.set_image_size(inference_res)
@@ -180,7 +144,6 @@ if __name__ == "__main__":
                 num_iters=args.num_iters,
                 grid_size=support_grid_size,
             )
-        all_feats = [pop_track_feats()]
         if n_query_frames > 1:
             all_coords, all_visibs = [coords], [visibs]
             video1 = video.flip(dims=(0,))
@@ -200,7 +163,6 @@ if __name__ == "__main__":
             )
             all_coords.append(coords1.flip(dims=(0,)))
             all_visibs.append(visibs1.flip(dims=(0,)))
-            all_feats.append(pop_track_feats())
             if n_query_frames > 2:
                 interval = len(video) // (n_query_frames - 1)
                 for n in range(1, n_query_frames-1):
@@ -220,7 +182,6 @@ if __name__ == "__main__":
                         num_iters=args.num_iters,
                         grid_size=support_grid_size,
                     )
-                    feats1 = pop_track_feats()
                     video2 = video[split_frame:]    
                     depths2 = depths[split_frame:]
                     intrinsics2 = intrinsics[split_frame:]  
@@ -235,20 +196,14 @@ if __name__ == "__main__":
                         num_iters=args.num_iters,
                         grid_size=support_grid_size,
                     )
-                    feats2 = pop_track_feats()
                     coords1 = coords1.flip(dims=(0,))
                     visibs1 = visibs1.flip(dims=(0,))
                     coords = torch.cat([coords1, coords2[1:]], dim=0)
                     visibs = torch.cat([visibs1, visibs2[1:]], dim=0)
                     all_coords.append(coords)
                     all_visibs.append(visibs)
-                    all_feats.append(None if feats1 is None else (feats1 + feats2) / 2)
             coords = torch.cat(all_coords, dim=1)
             visibs = torch.cat(all_visibs, dim=1)
-    track_feats = None
-    if args.save_track_feats:
-        track_feats = torch.cat(all_feats, dim=0).numpy()   # (N_total, 384), same order as coords
-        assert track_feats.shape[0] == coords.shape[1], (track_feats.shape, coords.shape)
     
     # Save results
     video = video.cpu().numpy()
@@ -269,7 +224,6 @@ if __name__ == "__main__":
         coords=coords,
         visibs=visibs,
         query_points=query_point,
-        **({"track_feats": track_feats} if track_feats is not None else {}),
     )
 
     logger.info(f"Results saved to {npz_path.resolve()}.\nTo visualize them, run: `[bold yellow]python visualize.py {shlex.quote(str(npz_path.resolve()))}[/bold yellow]`")

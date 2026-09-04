@@ -5,7 +5,8 @@ In this branch, we will integrate Part Articulation Transformer from [PARTICULAT
 Input multi-frames --> Canonical gaussians --> Part Articulation Transformer --> Deformation field --> Output multi-frames
 
 ## Advantage over original VideoArtGS
-- don't rely on heavy postprocessing procedures, including `depth and pose estimation` from VGGT, `3D tracks` from TAPIP3D
+- articulation axes/origins come from a feed-forward transformer instead of the hand-crafted motion analysis; note that the current pipeline still reads `joint_infos.json` (slot count / types / centers) and, in stage 3, `filtered.npz` (track loss), both produced by the TAPIP3D preprocessing
+- (2026-09) the TAPIP3D tracks and VGGT image features can additionally be fed to PAT as extra per-point inputs, see "PAT Architecture" below
 
 ## Advantage over Particulate
 - utilize multiview frames instead of input mesh, causing more efficient preprocessing steps
@@ -151,7 +152,7 @@ Specifically, the dimension for each gaussian primitive is 75, including
 - part segmentation feature $\f \in \mathbb{R}^{16}$
 - SH feature $\f \in \mathbb{R}^{48}$
 
-At this time, position $\mu$, rotation $\q$ and part segmentation feature $\f$ (combined with dimension 23) will be used as the input for the PAT model.
+Note: PAT does **not** consume these Gaussian attributes. `PAT/init_deform_PAT.py` loads the dataset's fused point cloud `DATASET/point_cloud.ply` (xyz + normals) and computes 448-dim PartField features for it; see "PAT Architecture" below for the exact input.
 
 
 ## Step 2: Part Articulation Transformer (PAT) Inference
@@ -162,10 +163,11 @@ bash scripts/init_deform_PAT.sh 1
 Objective: Infer kinematic structure directly from the 3D point cloud, replacing motion tracking and joint infos priors.
 
 Input
-- point cloud from step 1, including position, rotation and part segmentation feature
-    - position dimension 3
-    - rotation dimension 4
-    - part segmentation feature dimension 16
+- `DATASET/point_cloud.ply` (fused depth point cloud, world frame): xyz (3) + normals (3)
+- PartField features computed on the fly: 448 per point
+- optional extra inputs (read from the checkpoint sidecar `<ckpt>.json`, override with `--extra_feats`):
+  `track_geo` (56, from `filtered.npz`), `track_tapip` (384, `pat_extra/tapip3d_feats.npz`), `vggt` (128, `pat_extra/vggt128.npy`)
+- `DATASET/joint_infos.json`: slot count, joint types and part centers (PAT overrides direction/origin of the matched slots)
 
 Output
 - deform.pth, with exactly the same structure as the original VideoArtGS pipeline, including segmentation model and articulation model.
@@ -180,9 +182,31 @@ It stays consistent with the original pipeline.
 
 
 # PAT Architecture 
-Input:
-- point cloud 3D coordinates, dimension (N,3)
-<!-- - segmentation feature, dimension (N,16) -->
+Model: PAT_B (6 blocks, hidden 768, 12 heads, 151M params; `particulate/model_ckpt/pat_model.pt`).
+
+Input per point (all in the [-0.5, 0.5]^3 normalized frame):
+- xyz (3) -> Fourier positional embedder (64 freqs + raw = 195) -> 768
+- normals (3) -> same embedder -> 768
+- PartField features (448) -> `feat_proj` Linear(448 -> 768)
+- raw input = 454 dims, token dim 768; 16 part-query tokens on the query side
+- optional extra modalities (VideoArtGS extension, `extra_feat_dims` / `extra_embeds` in `particulate/models.py`,
+  each LayerNorm + MLP -> 768, zero-initialised so the released weights are reproduced exactly):
+
+| modality | dim | source | how to produce |
+|---|---|---|---|
+| `track_geo` | 56 | TAPIP3D trajectories in `filtered.npz`: displacement at 8 time stamps + visibility, motion statistics, fitted axis, motion-type one-hot, kNN confidence/valid | computed on the fly (`PAT/pat_extra_feats.py`) |
+| `track_tapip` | 384 | TAPIP3D EfficientUpdateFormer hidden state per track (last iteration, averaged over windows/frames), kNN-transferred to points | `python data_tools/extract_tapip3d_feats.py --data_dir ./data/videoartgs/sapien` (videoartgs env) |
+| `vggt` | 128 | VGGT (SpatialTrackerV2 front-end VGGT4Track) last aggregator layer, 2048-d frame‖global tokens, multi-view averaged onto points, PCA 2048 -> 128 | `python data_tools/extract_vggt_feats.py --data_dir ./data/videoartgs/sapien` (st2 env) |
+
+With all three the raw per-point input is 454 + 568 = 1022 dims; the transformer is unchanged.
+
+Fine-tuning with the extra inputs (LoRA on attention + the new branches), then inference:
+```bash
+python PAT/PAT_finetune.py --epochs 120 --extra_feats track_geo,track_tapip,vggt --labels track --train_on_all --save_name trained_PAT_model.pt
+bash scripts/videoartgs_pat_pipeline.sh --use_multi 1 --keep_logs 1 --mode 1 --output_dir outputs_PAT_3 --save_dir PAT_3 --PAT_model_pth particulate/model_ckpt/trained_PAT_model.pt
+# or everything in one go (waits for the feature files first):
+ALLOWED_GPUS=4,5,6 bash scripts/videoartgs_pat3_chain.sh
+```
 
 Output, articulation parameters including
 - part_ids

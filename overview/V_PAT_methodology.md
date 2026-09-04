@@ -107,9 +107,8 @@ Corresponding scripts:
 
 
 Input:
-- 20 scenes in `VideoArtGS-20`, utilize 15 of them for training
-    - training scenes: `100481  101284  101287  101808  101908  103015  103811  10489  10655  1280  168  25493  30666  31249  45194`
-    - rest 5 of them for test: `45503  45612  47648  8961  9016`
+- 20 scenes in `VideoArtGS-20`; `PAT/PAT_finetune.py` holds out `TEST_SCENES = 100481 101284 103811 45194 47648` unless `--train_on_all` is given (the 2026-09-04 `trained_PAT_model.pt` run used `--train_on_all`, i.e. train = test, on purpose as an overfitting check)
+- extra input modalities via `--extra_feats track_geo,track_tapip,vggt`, GT part labels via `--labels track` (track-derived) or `sphere`
 
 Model:
 Part Articulate Transformer, with N=6 blocks
@@ -134,9 +133,14 @@ Corresponding scripts:
 - [init_deform_PAT.sh](../scripts/init_deform_PAT.sh)
 - [SLURM init_deform_PAT.sh](../SLURM_execution/SLURM_script/init_deform_PAT.sh)
 
-Input:
-- Gaussian Primitives core parameters(potentially other inputs)
-    - position $\mu \in \mathbb{R}^{3}$
+Input (actual code, `PAT/init_deform_PAT.py`):
+- `DATASET/point_cloud.ply` fused point cloud: position $\mu \in \mathbb{R}^{3}$ and normal $n \in \mathbb{R}^{3}$ (not the trained Gaussians)
+- PartField feature $f \in \mathbb{R}^{448}$ per point, computed on the fly
+- optional extra inputs (2026-09, `PAT/pat_extra_feats.py`; configured by the checkpoint sidecar json):
+    - `track_geo` $\in \mathbb{R}^{56}$: TAPIP3D trajectory + motion statistics from `filtered.npz`
+    - `track_tapip` $\in \mathbb{R}^{384}$: TAPIP3D updater hidden state (`pat_extra/tapip3d_feats.npz`)
+    - `vggt` $\in \mathbb{R}^{128}$: PCA-reduced VGGT tokens (`pat_extra/vggt128.npy`)
+- `DATASET/joint_infos.json`: slot count, joint types, part centers (from the TAPIP3D motion analysis)
 
 Methodology(to be adjusted later):
 - Given the joint type, segmentation number, predict the articulation axis direction and origin, and joint motion range for each movable part

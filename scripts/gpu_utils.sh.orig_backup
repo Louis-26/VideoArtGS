@@ -43,18 +43,6 @@ function init_env() {
 
     # 4. Dynamically find available GPUs (> ${MIN_MEM}GB free)
     AVAILABLE_GPUS=($(nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits | awk -F',' -v min_mem="$MIN_MEM" '$2 > min_mem {print $1}'))
-
-    # Optional whitelist on shared nodes: ALLOWED_GPUS="4,5,6" keeps only those indices
-    # (default: unchanged behaviour, every GPU with enough free memory is used).
-    if [ -n "$ALLOWED_GPUS" ]; then
-        FILTERED=()
-        # keep the order given in ALLOWED_GPUS (first entry = preferred single GPU)
-        for g in ${ALLOWED_GPUS//,/ }; do
-            case " ${AVAILABLE_GPUS[*]} " in *" $g "*) FILTERED+=("$g") ;; esac
-        done
-        AVAILABLE_GPUS=("${FILTERED[@]}")
-        echo "🔒 ALLOWED_GPUS=$ALLOWED_GPUS -> candidate GPUs: ${AVAILABLE_GPUS[*]}"
-    fi
     
     if [ ${#AVAILABLE_GPUS[@]} -eq 0 ]; then
         echo "❌ Warning: No available GPUs with > ${MIN_MEM} GB free memory found! Please try again later."

@@ -8,10 +8,6 @@ Pipeline (aligned with the official Particulate inference, RuiningLi/particulate
     -> normalize to the [-0.5, 0.5]^3 bounding box (longest side = 1)
     -> PartField (model_objaverse.ckpt): 40k encoder points -> triplane
        -> 448-dim per-point features queried at the decoder points
-    -> optional extra per-point inputs (VideoArtGS extension, PAT/pat_extra_feats.py):
-       track_geo (TAPIP3D trajectories from filtered.npz), track_tapip (TAPIP3D hidden
-       state), vggt (VGGT tokens); which ones are used is read from the checkpoint's
-       sidecar <ckpt>.json written by PAT/PAT_finetune.py (override with --extra_feats)
     -> PAT (pat_model.pt): part segmentation + per-part joint parameters
     -> denormalize joint origins back to the world frame
     -> match PAT parts to the GT joint slots by centroid distance and
@@ -40,16 +36,6 @@ from utils.general_utils import safe_state
 from particulate.models import PAT_B
 from particulate.articulation_utils import plucker_to_axis_point
 from particulate.partfield_utils import get_partfield_model, obtain_partfield_feats
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pat_extra_feats import NormFrame, compute_scene_extra_feats, extra_feat_dims, parse_extra_names
-
-# Exact configuration of the released checkpoint (configs/particulate-B.yaml).
-DEFAULT_MODEL_KWARGS = dict(
-    input_dim=448, dropout=0.1, use_normals=True, max_parts=16,
-    use_part_id_embedding=True, use_raw_coords=True,
-    use_point_features_for_motion_decoding=False,
-    num_mask_hypotheses=1, motion_representation='per_point_closest',
-)
 
 # Number of points fed to the PartField encoder (official Particulate infer.py value).
 NUM_ENC_POINTS = 40000
@@ -92,35 +78,14 @@ class PAT_Initializer:
         self.norm_center = (bbmin + bbmax) / 2
         self.norm_scale = float((bbmax - bbmin).max())
         xyz_norm = (xyz_rot - self.norm_center) / self.norm_scale
-        self.frame = NormFrame(self.up_rot, self.norm_center, self.norm_scale)
-
-        # Extra input modalities: configuration comes from the checkpoint sidecar json.
-        self.sidecar = self.load_sidecar(os.path.join(ROOT, self.pat_model_path))
-        if self.args.extra_feats == "auto":
-            self.extra_names = list(self.sidecar.get("extra_feats", []))
-        else:
-            self.extra_names = parse_extra_names(self.args.extra_feats)
-        if self.sidecar and self.sidecar.get("pat_up_dir", self.args.pat_up_dir) != self.args.pat_up_dir:
-            print(f"[PAT] ⚠️ checkpoint was fine-tuned with --pat_up_dir {self.sidecar['pat_up_dir']} "
-                  f"but inference uses {self.args.pat_up_dir}")
-        extra_all = {}
-        if self.extra_names:
-            print(f"[PAT] Extra input modalities: {extra_feat_dims(self.extra_names)}")
-            extra_all, _ = compute_scene_extra_feats(
-                self.args.source_path, xyz_world, self.frame, self.extra_names,
-                k_frames=self.sidecar.get("k_frames", 8), knn_k=self.sidecar.get("knn_k", 4),
-                valid_thr=self.sidecar.get("valid_thr", 0.02))
-            if "track_geo" in extra_all:
-                print(f"[PAT]   points with a nearby track: {float(extra_all['track_geo'][:, -1].mean()):.2%}")
 
         num_dec = min(N, self.args.pat_num_points)
         print(f"[PAT] Step 2/4: Sampling {min(N, NUM_ENC_POINTS)} encoder / {num_dec} decoder points out of {N}...")
         enc_idx = np.random.choice(N, min(N, NUM_ENC_POINTS), replace=False)
         dec_idx = np.random.choice(N, num_dec, replace=False)
-        extra_dec = {n: torch.from_numpy(v[dec_idx]).float().cuda().unsqueeze(0) for n, v in extra_all.items()}
 
         pat_results = self.run_pat_inference(
-            xyz_norm[enc_idx], xyz_norm[dec_idx], normals_rot[dec_idx], extra_dec)
+            xyz_norm[enc_idx], xyz_norm[dec_idx], normals_rot[dec_idx])
 
         # 2. Blend PAT predictions into the original joint_infos.
         print("[PAT] Step 3/4: Bridging PAT physical priors to VideoArtGS architecture...")
@@ -186,27 +151,26 @@ class PAT_Initializer:
                            np.array([0.0, 0.0, 1.0], dtype=np.float32))
         return xyz, normals
 
-    @staticmethod
-    def load_sidecar(ckpt_path):
-        """PAT_finetune.py writes <ckpt>.json next to the checkpoint describing the extra inputs."""
-        sidecar_path = os.path.splitext(ckpt_path)[0] + ".json"
-        if os.path.exists(sidecar_path):
-            with open(sidecar_path) as f:
-                sidecar = json.load(f)
-            print(f"[PAT] Loaded checkpoint sidecar {sidecar_path}: extra_feats={sidecar.get('extra_feats', [])}")
-            return sidecar
-        return {}
-
-    def run_pat_inference(self, xyz_enc, xyz_dec, normals_dec, extra_dec=None):
-        model_kwargs = dict(self.sidecar.get("model_kwargs", DEFAULT_MODEL_KWARGS))
-        pat_model = PAT_B(**model_kwargs, extra_feat_dims=extra_feat_dims(self.extra_names)).cuda()
+    def run_pat_inference(self, xyz_enc, xyz_dec, normals_dec):
+        # Exact configuration of the released checkpoint (configs/particulate-B.yaml).
+        pat_model = PAT_B(
+            input_dim=448,
+            dropout=0.1,
+            use_normals=True,
+            max_parts=16,
+            use_part_id_embedding=True,
+            use_raw_coords=True,
+            use_point_features_for_motion_decoding=False,
+            num_mask_hypotheses=1,
+            motion_representation='per_point_closest',
+        ).cuda()
 
         ckpt_path = os.path.join(ROOT, self.pat_model_path)
         if not os.path.exists(ckpt_path):
             raise FileNotFoundError(f"PAT checkpoint missing at {ckpt_path}. Please download it.")
         pat_model.load_state_dict(torch.load(ckpt_path, map_location='cpu'), strict=True)
         pat_model.eval()
-        print(f"[PAT] Loaded PAT weights from {ckpt_path} (strict; extra branches: {self.extra_names or 'none'})")
+        print(f"[PAT] Loaded PAT weights from {ckpt_path} (strict)")
 
         xyz_enc_t = torch.from_numpy(xyz_enc).float().cuda().unsqueeze(0)
         xyz_dec_t = torch.from_numpy(xyz_dec).float().cuda().unsqueeze(0)
@@ -223,7 +187,6 @@ class PAT_Initializer:
         with torch.no_grad():
             results = pat_model.infer(
                 xyz=xyz_dec_t, feats=feats, normals=normals_t,
-                extra_feats=extra_dec or None,
                 min_part_confidence=0.0)[0]
         return results
 
@@ -338,9 +301,6 @@ if __name__ == "__main__":
                         help="Max joint-center-to-part-centroid distance for an accepted match, as a fraction of the object's longest bbox side")
     parser.add_argument('--PAT_model_pth', type=str, default="particulate/model_ckpt/pat_model.pt",
                         help="Path to the pre-trained PAT model")
-    parser.add_argument('--extra_feats', type=str, default="auto",
-                        help="extra per-point PAT inputs: 'auto' = read the checkpoint sidecar json, "
-                             "'' = none, or a comma list of track_geo,track_tapip,vggt")
     args = parser.parse_args(sys.argv[1:])
     args.source_path = f"{args.source_path}/{args.dataset}/{args.subset}/{args.scene_name}"
 

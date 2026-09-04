@@ -145,7 +145,6 @@ class PAT(nn.Module):
         point_feature_random_ratio: float = 0.0,
         num_mask_hypotheses: int = 1,
         motion_representation: str = 'per_part_plucker',  # one of ["per_part_plucker", "per_point_closest"]
-        extra_feat_dims: Optional[dict] = None,  # VideoArtGS: {name: dim} of additional per-point inputs
     ):
         super(PAT, self).__init__()
 
@@ -165,23 +164,6 @@ class PAT(nn.Module):
                 input_dim=3,
                 raw=use_raw_coords
             )
-
-        # VideoArtGS addition: extra per-point input modalities (tracking / VGGT features).
-        # Each modality gets its own LayerNorm + MLP branch added to the point tokens, like
-        # the normal branch. The last layer is zero-initialised so a freshly extended model
-        # is numerically identical to the released checkpoint until fine-tuned.
-        self.extra_feat_dims = dict(extra_feat_dims or {})
-        self.extra_embeds = nn.ModuleDict()
-        for name, dim in self.extra_feat_dims.items():
-            mlp = nn.Sequential(
-                nn.LayerNorm(dim),
-                nn.Linear(dim, hidden_size),
-                nn.SiLU(),
-                nn.Linear(hidden_size, hidden_size),
-            )
-            nn.init.zeros_(mlp[-1].weight)
-            nn.init.zeros_(mlp[-1].bias)
-            self.extra_embeds[name] = mlp
 
         self.blocks = nn.ModuleList([
             Block(
@@ -285,20 +267,12 @@ class PAT(nn.Module):
         query_feats: Optional[torch.FloatTensor] = None,
         normals: Optional[torch.FloatTensor] = None,
         text_prompts: Optional[List[str]] = None,
-        extra_feats: Optional[dict] = None,
     ):
         batch_size = xyz.shape[0]
         x = self.feat_proj(feats) + self.pos_embed(xyz)
         if self.use_normals:
             assert normals is not None
             x = x + self.normal_embed(normals)
-        if self.extra_feat_dims:
-            extra_feats = extra_feats or {}
-            for name in self.extra_feat_dims:
-                if name in extra_feats and extra_feats[name] is not None:
-                    assert extra_feats[name].shape[-1] == self.extra_feat_dims[name], \
-                        (name, extra_feats[name].shape, self.extra_feat_dims[name])
-                    x = x + self.extra_embeds[name](extra_feats[name])
 
         if text_prompts is not None:
             raise NotImplementedError("Text prompts are not implemented yet")
@@ -334,11 +308,10 @@ class PAT(nn.Module):
         num_valid_parts: Optional[torch.LongTensor] = None,
         run_matching: bool = False,
         force_hyp_idx: int = -1,
-        min_part_confidence: float = 0.0,
-        extra_feats: Optional[dict] = None,
+        min_part_confidence: float = 0.0
     ):
         batch_size, num_points = xyz.shape[:2]
-        x, q = self.forward_attn(xyz, feats, query_xyz, query_feats, normals, text_prompts, extra_feats=extra_feats)
+        x, q = self.forward_attn(xyz, feats, query_xyz, query_feats, normals, text_prompts)
 
         point_masks = self.point_mask_decoding_func(x, q)  # (B, M, N)
         
@@ -789,7 +762,6 @@ class PAT(nn.Module):
         normals: Optional[torch.FloatTensor] = None,
         text_prompts: Optional[List[str]] = None,
         run_matching: bool = False,
-        extra_feats: Optional[dict] = None,
     ) -> Tuple[dict, torch.LongTensor]:
         """
         Forward pass during training.
@@ -825,8 +797,7 @@ class PAT(nn.Module):
             forward_motion_class, forward_motion_params,
             gt_part_ids=part_ids,
             num_valid_parts=num_valid_parts,
-            run_matching=run_matching,
-            extra_feats=extra_feats,
+            run_matching=run_matching
         )   
 
         # Compute losses
@@ -998,8 +969,7 @@ class PAT(nn.Module):
         gt_part_ids: Optional[torch.LongTensor] = None,
         overwrite_part_ids: Optional[torch.LongTensor] = None,
         output_all_hyps: bool = False,
-        min_part_confidence: float = 0.0,
-        extra_feats: Optional[dict] = None,
+        min_part_confidence: float = 0.0
     ):
         assert xyz.shape[0] == 1, "Only batch size 1 is supported"
 
@@ -1019,8 +989,7 @@ class PAT(nn.Module):
                     num_valid_parts=num_valid_parts,
                     run_matching=run_matching,
                     force_hyp_idx=hyp_idx,
-                    min_part_confidence=min_part_confidence,
-                    extra_feats=extra_feats,
+                    min_part_confidence=min_part_confidence
                 ))
         else:
             results.append(self.forward_results(
@@ -1032,8 +1001,7 @@ class PAT(nn.Module):
                 num_valid_parts=num_valid_parts,
                 run_matching=run_matching,
                 force_hyp_idx=-1,
-                min_part_confidence=min_part_confidence,
-                extra_feats=extra_feats,
+                min_part_confidence=min_part_confidence
             ))
 
         postprocessed_results = [self._postprocess_results(*result[:-1]) for result in results]  # Ignore the last element (best_point_mask_id)
@@ -1048,16 +1016,6 @@ class PAT(nn.Module):
                 )
                 
         return postprocessed_results
-
-
-def load_pat_checkpoint(model: PAT, state_dict: dict):
-    """Load a PAT state dict; the only keys allowed to be missing are the zero-initialised
-    `extra_embeds.*` branches of a model extended with extra_feat_dims (VideoArtGS)."""
-    missing, unexpected = model.load_state_dict(state_dict, strict=False)
-    bad_missing = [k for k in missing if not k.startswith("extra_embeds.")]
-    if bad_missing or unexpected:
-        raise RuntimeError(f"PAT checkpoint mismatch: missing={bad_missing}, unexpected={list(unexpected)}")
-    return missing
 
 
 def PAT_S(**kwargs):
