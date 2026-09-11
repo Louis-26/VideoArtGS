@@ -1,0 +1,1 @@
+These are the reproduction results from the original paper `VideoArtGS`.

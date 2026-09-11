@@ -29,6 +29,9 @@ GT part labels (--labels):
   sphere  joint center + dist_max spheres (original heuristic; crude)
   track   points whose nearest TAPIP3D tracks move get the nearest type-compatible moving
           joint, the rest is base; falls back to sphere labels if a part ends up empty
+  gt      nearest surface sample of the GT part meshes gt/part_k.ply (real 3D segmentation GT)
+Articulation GT (--joint_gt): joint_infos.json (motion analysis) or gt = gt/mobility_v2.json
+(read with utils.metrics.read_gt, i.e. the evaluation's frame and joint filtering).
 
 MUST CHECK BY HAND before trusting results:
   [A] open the saved <out_dir>/gt_labels_<scene>.ply files: the colored regions should
@@ -67,6 +70,7 @@ except ImportError:  # upstream repo keeps it at top level
     from partfield_utils import get_partfield_model, obtain_partfield_feats
 from pat_extra_feats import (NormFrame, parse_extra_names, extra_feat_dims,
                              compute_scene_extra_feats, track_part_labels)
+from utils.metrics import read_gt
 
 TEST_SCENES = ["100481", "101284", "103811", "45194", "47648"]
 DATA_PATH = os.path.join(ROOT, "data/videoartgs")
@@ -255,6 +259,52 @@ def track_labels(scene_name, scene_dir, xyz_w, frame, moving, fallback, args):
     return labels
 
 
+def gt_part_meshes(scene_dir):
+    """gt/part_0.ply (static base), gt/part_k.ply (k-th moving joint of read_gt, same order as
+    utils/metrics.eval_CD pairs them). Triangle meshes in the dataset world frame."""
+    import glob
+    files = sorted(glob.glob(os.path.join(scene_dir, "gt", "part_*.ply")),
+                   key=lambda f: int(os.path.basename(f).split("_")[-1].split(".")[0]))
+    if not files:
+        raise FileNotFoundError(f"no gt/part_*.ply under {scene_dir}")
+    return files
+
+
+def gt_labels(scene_name, scene_dir, xyz_w, n_samples=300000, min_per_part=5000):
+    """Per-point labels from the GT part meshes: sample every part surface uniformly
+    (area-proportional, >= min_per_part points), label each point by its nearest sample.
+    Returns (labels 0..K, nearest-sample distance)."""
+    import open3d as o3d
+    files = gt_part_meshes(scene_dir)
+    meshes = [o3d.io.read_triangle_mesh(f) for f in files]
+    areas = np.array([max(m.get_surface_area(), 1e-8) for m in meshes])
+    samples, labels = [], []
+    for k, m in enumerate(meshes):
+        n = int(max(min_per_part, round(n_samples * areas[k] / areas.sum())))
+        pts = np.asarray(m.sample_points_uniformly(number_of_points=n).points, dtype=np.float32)
+        samples.append(pts)
+        labels.append(np.full(len(pts), k, dtype=np.int64))
+    samples, labels = np.concatenate(samples), np.concatenate(labels)
+    d, idx = cKDTree(samples).query(xyz_w)
+    print(f"    [label] {scene_name}: GT-mesh labels from {len(files)} parts; point-to-GT-surface "
+          f"median {np.median(d):.4f}, p95 {np.percentile(d, 95):.4f}, >5cm {float((d > 0.05).mean()):.1%}")
+    return labels[idx], d
+
+
+def gt_moving_joints(scene_dir):
+    """Moving joints from gt/mobility_v2.json in the dataset world frame (utils.metrics.read_gt:
+    same rotation and filtering as the evaluation), in the order matching gt/part_{k}.ply."""
+    gts = read_gt(os.path.join(scene_dir, "gt", "mobility_v2.json"))
+    moving = []
+    for g in gts:
+        d = np.asarray(g["direction"], dtype=np.float32)
+        moving.append({"joint_type": g["joint_type"],
+                       "direction": (d / (np.linalg.norm(d) + 1e-8)).tolist(),
+                       "origin": np.asarray(g["origin"], dtype=np.float32).tolist(),
+                       "gt_idx": int(g.get("idx", -1))})
+    return moving
+
+
 def prepare_scene(scene_name, args, partfield_model, out_dir, extra_names):
     """Load one scene and precompute everything reusable across training steps.
 
@@ -268,7 +318,18 @@ def prepare_scene(scene_name, args, partfield_model, out_dir, extra_names):
     xyz_w, normals_w = load_xyz_normals(os.path.join(scene_dir, "point_cloud.ply"))
     with open(os.path.join(scene_dir, "joint_infos.json")) as f:
         joint_infos = json.load(f)
-    moving = [j for j in joint_infos if j["joint_type"] in ("r", "p")]
+    if args.joint_gt == "gt":
+        # real articulation GT (gt/mobility_v2.json); centres only feed the sphere-label fallback
+        moving = gt_moving_joints(scene_dir)
+        n_gt_parts = len(gt_part_meshes(scene_dir))
+        if n_gt_parts - 1 != len(moving):
+            print(f"    [skip] {scene_name}: {n_gt_parts} GT part meshes but {len(moving)} GT joints")
+            return None
+        import open3d as o3d
+        for k, j in enumerate(moving, start=1):
+            j["center"] = np.asarray(o3d.io.read_triangle_mesh(gt_part_meshes(scene_dir)[k]).vertices).mean(0).tolist()
+    else:
+        moving = [j for j in joint_infos if j["joint_type"] in ("r", "p")]
     if not moving:
         return None
 
@@ -286,9 +347,15 @@ def prepare_scene(scene_name, args, partfield_model, out_dir, extra_names):
     if P > MAX_PARTS:
         print(f"    [skip] {scene_name}: {P} parts exceeds max_parts={MAX_PARTS}")
         return None
-    part_ids = sphere_labels(scene_name, xyz_w, moving, scale, args)
-    if args.labels == "track":
-        part_ids = track_labels(scene_name, scene_dir, xyz_w, frame, moving, part_ids, args)
+    if args.labels == "gt":
+        part_ids, _ = gt_labels(scene_name, scene_dir, xyz_w)
+        if part_ids.max() != P - 1:
+            print(f"    [skip] {scene_name}: GT labels have {part_ids.max() + 1} parts, expected {P}")
+            return None
+    else:
+        part_ids = sphere_labels(scene_name, xyz_w, moving, scale, args)
+        if args.labels == "track":
+            part_ids = track_labels(scene_name, scene_dir, xyz_w, frame, moving, part_ids, args)
     save_label_ply(xyz_w, part_ids, os.path.join(out_dir, f"gt_labels_{scene_name}.ply"))
     counts = [int((part_ids == p).sum()) for p in range(P)]
     if min(counts) == 0:
@@ -472,8 +539,14 @@ def main():
     parser.add_argument("--label_knn_fallback", action=BooleanOptionalAction,
                         default=True, help="label the N nearest points when the sphere catches none "
                                            "(keeps the scene instead of skipping it; verify the ply)")
-    parser.add_argument("--labels", type=str, default="sphere", choices=["sphere", "track"],
-                        help="GT part-label source (see module docstring)")
+    parser.add_argument("--labels", type=str, default="sphere", choices=["sphere", "track", "gt"],
+                        help="part-label source: sphere / track pseudo labels, or gt = gt/part_*.ply meshes")
+    parser.add_argument("--joint_gt", type=str, default="joint_infos", choices=["joint_infos", "gt"],
+                        help="articulation GT: joint_infos.json (motion analysis) or gt = gt/mobility_v2.json")
+    parser.add_argument("--bridge", type=str, default="legacy", choices=["legacy", "pat_vlm"],
+                        help="recorded in the sidecar: how init_deform_PAT.py should turn PAT outputs into "
+                             "deform-field slots (legacy = override joint_infos axes; pat_vlm = PAT centres/"
+                             "extents/axes for the joint_infos.json slot list)")
     parser.add_argument("--w_mask", type=float, default=None, help="override point_mask loss weight")
     parser.add_argument("--w_dice", type=float, default=None, help="override dice loss weight")
     parser.add_argument("--train_heads", action="store_true",
@@ -651,6 +724,8 @@ def main():
         "pat_up_dir": args.pat_up_dir,
         "model_kwargs": MODEL_KWARGS,
         "labels": args.labels,
+        "joint_gt": args.joint_gt,
+        "bridge": args.bridge,
         "train_scenes": [s["name"] for s in train_scenes],
         "train_on_all": args.train_on_all,
         "base_checkpoint": "pat_model.pt",

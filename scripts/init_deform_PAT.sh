@@ -14,6 +14,9 @@ KEEP_LOGS=0
 OUTPUT_DIR="outputs"
 PAT_MODEL_PTH="particulate/model_ckpt/pat_model.pt"
 PAT_NUM_POINTS=65536
+# Track-fitting iterations for the deformation field. init_deform.py (the
+# non-PAT pipeline) uses 10000; PAT only supplies the initial joint parameters.
+DEFORM_ITERS=10000
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -23,6 +26,7 @@ while [[ "$#" -gt 0 ]]; do
         --output_dir) OUTPUT_DIR="$2"; shift ;;
         --PAT_model_pth) PAT_MODEL_PTH="$2"; shift ;;
         --pat_num_points) PAT_NUM_POINTS="$2"; shift ;;
+        --deform_iters) DEFORM_ITERS="$2"; shift ;;
         *) echo "❌ Error: Unknown parameter: $1"; exit 1 ;;
     esac
     shift
@@ -84,7 +88,7 @@ for i in "${!scenes[@]}"; do
             --subset ${subset} \
             --scene_name ${scene} \
             --model_path ${model_path} \
-            --iterations 1 \
+            --iterations ${DEFORM_ITERS} \
             --seed ${seed} \
             --pat_num_points ${PAT_NUM_POINTS} \
             --PAT_model_pth ${PAT_CKPT_ABS}"

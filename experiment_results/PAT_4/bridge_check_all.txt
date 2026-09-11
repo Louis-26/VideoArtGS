@@ -1,0 +1,80 @@
+ 100481 slots_ok=True n=3 | axis(deg) pat   0.04 orig   5.86 | origin(cm) pat   0.22 orig   1.51
+        per-joint pat  ang=[0.02, 0.07] org=[0.16, 0.28]
+        per-joint orig ang=[9.38, 2.34] org=[2.97, 0.05]
+        dist_max pat=[0.98, 0.149, 0.149] orig=[1.177, 0.171, 0.163]  center shift=[0.28, 0.634, 0.683]
+ 101284 slots_ok=True n=3 | axis(deg) pat   0.26 orig   0.84 | origin(cm) pat   0.36 orig   1.68
+        per-joint pat  ang=[0.12, 0.41] org=[0.42, 0.31]
+        per-joint orig ang=[1.14, 0.55] org=[2.6, 0.76]
+        dist_max pat=[0.705, 0.1, 0.1] orig=[0.715, 0.093, 0.088]  center shift=[0.016, 0.095, 0.054]
+ 101287 slots_ok=True n=3 | axis(deg) pat   0.20 orig   1.40 | origin(cm) pat   0.45 orig   0.21
+        per-joint pat  ang=[0.35, 0.06] org=[0.28, 0.62]
+        per-joint orig ang=[2.18, 0.63] org=[0.27, 0.15]
+        dist_max pat=[0.569, 0.107, 0.106] orig=[0.682, 0.096, 0.058]  center shift=[0.047, 0.641, 0.706]
+ 101808 slots_ok=True n=3 | axis(deg) pat   2.73 orig   7.72 | origin(cm) pat   0.58 orig   0.99
+        per-joint pat  ang=[3.73, 1.72] org=[0.37, 0.8]
+        per-joint orig ang=[4.9, 10.53] org=[0.65, 1.33]
+        dist_max pat=[1.08, 0.111, 0.094] orig=[1.204, 0.138, 0.166]  center shift=[0.346, 0.054, 0.076]
+ 101908 slots_ok=True n=4 | axis(deg) pat   0.03 orig   1.42 | origin(cm) pat   0.39 orig   1.14
+        per-joint pat  ang=[0.03, 0.01, 0.04] org=[0.17, 0.61, 0.4]
+        per-joint orig ang=[1.85, 0.74, 1.68] org=[2.44, 0.13, 0.85]
+        dist_max pat=[1.042, 0.091, 0.082, 0.083] orig=[1.109, 0.302, 0.29, 0.101]  center shift=[0.286, 0.637, 0.099, 0.659]
+ 103015 slots_ok=True n=4 | axis(deg) pat   0.05 orig   5.82 | origin(cm) pat   0.43 orig   1.28
+        per-joint pat  ang=[0.06, 0.09, 0.0] org=[0.69, 0.37, 0.23]
+        per-joint orig ang=[6.52, 7.46, 3.47] org=[0.8, 0.44, 2.61]
+        dist_max pat=[1.043, 0.051, 0.052, 0.051] orig=[1.031, 0.095, 0.166, 0.195]  center shift=[0.025, 0.434, 0.427, 0.873]
+ 103811 slots_ok=True n=7 | axis(deg) pat   0.03 orig   0.57 | origin(cm) pat   0.00 orig   0.00
+        per-joint pat  ang=[0.08, 0.01, 0.03, 0.03, 0.04, 0.01] org=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        per-joint orig ang=[0.19, 1.15, 0.37, 0.63, 0.87, 0.23] org=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        dist_max pat=[1.122, 0.138, 0.128, 0.143, 0.147, 0.143, 0.143] orig=[1.414, 0.3, 0.174, 0.11, 0.08, 0.089, 0.062]  center shift=[0.418, 0.349, 0.911, 0.359, 0.268, 0.474, 0.202]
+  10489 slots_ok=True n=3 | axis(deg) pat   0.02 orig   0.92 | origin(cm) pat   0.45 orig   0.10
+        per-joint pat  ang=[0.02, 0.03] org=[0.25, 0.66]
+        per-joint orig ang=[0.87, 0.96] org=[0.01, 0.19]
+        dist_max pat=[1.033, 0.136, 0.082] orig=[1.052, 0.094, 0.156]  center shift=[0.154, 0.829, 0.759]
+  10655 slots_ok=True n=3 | axis(deg) pat   0.04 orig   1.69 | origin(cm) pat   0.98 orig   0.34
+        per-joint pat  ang=[0.04, 0.04] org=[0.64, 1.33]
+        per-joint orig ang=[0.8, 2.57] org=[0.3, 0.37]
+        dist_max pat=[1.001, 0.171, 0.165] orig=[1.02, 0.18, 0.22]  center shift=[0.1, 1.248, 1.344]
+   1280 slots_ok=True n=3 | axis(deg) pat   0.10 orig   4.84 | origin(cm) pat   0.17 orig   1.23
+        per-joint pat  ang=[0.07, 0.12] org=[0.08, 0.26]
+        per-joint orig ang=[1.33, 8.35] org=[1.97, 0.49]
+        dist_max pat=[0.908, 0.042, 0.043] orig=[1.032, 0.04, 0.127]  center shift=[0.172, 0.128, 0.128]
+    168 slots_ok=True n=3 | axis(deg) pat   0.06 orig   1.64 | origin(cm) pat   0.21 orig   1.32
+        per-joint pat  ang=[0.07, 0.05] org=[0.1, 0.33]
+        per-joint orig ang=[2.32, 0.97] org=[1.17, 1.46]
+        dist_max pat=[0.409, 0.165, 0.059] orig=[1.245, 0.123, 0.036]  center shift=[0.277, 0.293, 0.21]
+  25493 slots_ok=True n=4 | axis(deg) pat   0.03 orig   0.37 | origin(cm) pat   0.00 orig   0.00
+        per-joint pat  ang=[0.02, 0.02, 0.06] org=[0.0, 0.0, 0.0]
+        per-joint orig ang=[0.31, 0.32, 0.49] org=[0.0, 0.0, 0.0]
+        dist_max pat=[0.967, 0.076, 0.074, 0.057] orig=[0.968, 0.073, 0.081, 0.094]  center shift=[0.081, 0.144, 0.103, 0.17]
+  30666 slots_ok=True n=10 | axis(deg) pat   0.04 orig   0.91 | origin(cm) pat   0.00 orig   0.00
+        per-joint pat  ang=[0.01, 0.02, 0.02, 0.04, 0.02, 0.05, 0.05, 0.05, 0.09] org=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        per-joint orig ang=[0.33, 0.42, 0.61, 0.66, 0.74, 0.98, 1.05, 1.22, 2.2] org=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        dist_max pat=[1.041, 0.106, 0.084, 0.092, 0.09, 0.086, 0.102, 0.087, 0.08, 0.082] orig=[1.144, 0.27, 0.305, 0.08, 0.143, 0.311, 0.084, 0.185, 0.281, 0.196]  center shift=[0.273, 1.264, 1.186, 0.103, 1.218, 1.192, 1.233, 0.399, 0.242, 1.18]
+  31249 slots_ok=True n=5 | axis(deg) pat   0.02 orig   1.08 | origin(cm) pat   0.02 orig   0.16
+        per-joint pat  ang=[0.02, 0.03, 0.01, 0.04] org=[0.0, 0.0, 0.03, 0.04]
+        per-joint orig ang=[0.69, 2.61, 0.83, 0.18] org=[0.0, 0.0, 0.11, 0.52]
+        dist_max pat=[1.048, 0.083, 0.085, 0.09, 0.092] orig=[1.061, 0.235, 0.189, 0.098, 0.108]  center shift=[0.12, 0.816, 0.81, 0.04, 0.061]
+  45194 slots_ok=True n=5 | axis(deg) pat   0.02 orig   0.68 | origin(cm) pat   0.16 orig   0.21
+        per-joint pat  ang=[0.02, 0.02, 0.02, 0.02] org=[0.13, 0.52, 0.0, 0.0]
+        per-joint orig ang=[0.21, 0.77, 0.13, 1.63] org=[0.54, 0.28, 0.0, 0.0]
+        dist_max pat=[1.076, 0.107, 0.107, 0.103, 0.106] orig=[1.151, 0.24, 0.249, 0.245, 0.193]  center shift=[0.207, 0.072, 0.087, 0.148, 0.061]
+  45503 slots_ok=True n=4 | axis(deg) pat   0.03 orig   1.23 | origin(cm) pat   0.23 orig   0.10
+        per-joint pat  ang=[0.0, 0.07, 0.01] org=[0.35, 0.19, 0.14]
+        per-joint orig ang=[1.61, 1.19, 0.9] org=[0.1, 0.15, 0.06]
+        dist_max pat=[1.11, 0.122, 0.127, 0.119] orig=[1.045, 0.117, 0.142, 0.145]  center shift=[0.182, 0.843, 0.041, 0.754]
+  45612 slots_ok=True n=7 | axis(deg) pat   0.04 orig   1.91 | origin(cm) pat   0.67 orig   0.25
+        per-joint pat  ang=[0.01, 0.06, 0.03, 0.09, 0.02, 0.02] org=[0.09, 1.14, 2.22, 0.55, 0.0, 0.0]
+        per-joint orig ang=[2.12, 3.35, 2.58, 0.79, 0.93, 1.69] org=[0.91, 0.0, 0.52, 0.08, 0.0, 0.0]
+        dist_max pat=[1.06, 0.066, 0.066, 0.08, 0.084, 0.072, 0.072] orig=[1.109, 0.269, 0.255, 0.11, 0.288, 0.31, 0.186]  center shift=[0.213, 1.207, 1.192, 0.939, 1.408, 0.462, 0.072]
+  47648 slots_ok=True n=7 | axis(deg) pat   0.03 orig   2.84 | origin(cm) pat   0.20 orig   0.19
+        per-joint pat  ang=[0.03, 0.02, 0.01, 0.04, 0.02, 0.06] org=[0.97, 0.13, 0.01, 0.08, 0.0, 0.0]
+        per-joint orig ang=[1.76, 1.37, 1.93, 1.7, 1.57, 8.7] org=[0.45, 0.32, 0.05, 0.3, 0.0, 0.0]
+        dist_max pat=[1.03, 0.056, 0.067, 0.068, 0.059, 0.055, 0.053] orig=[1.075, 0.222, 0.203, 0.265, 0.214, 0.194, 0.221]  center shift=[0.154, 0.042, 0.061, 1.002, 0.984, 0.456, 0.412]
+   8961 slots_ok=True n=3 | axis(deg) pat   0.37 orig   0.91 | origin(cm) pat   0.91 orig   0.38
+        per-joint pat  ang=[0.65, 0.1] org=[1.08, 0.75]
+        per-joint orig ang=[0.62, 1.2] org=[0.56, 0.2]
+        dist_max pat=[1.049, 0.167, 0.168] orig=[1.052, 0.17, 0.18]  center shift=[0.044, 0.799, 0.799]
+   9016 slots_ok=True n=3 | axis(deg) pat   0.48 orig   1.34 | origin(cm) pat   0.73 orig   0.72
+        per-joint pat  ang=[0.23, 0.72] org=[0.33, 1.13]
+        per-joint orig ang=[1.41, 1.27] org=[0.03, 1.4]
+        dist_max pat=[1.146, 0.134, 0.135] orig=[1.093, 0.243, 0.276]  center shift=[0.241, 0.879, 0.918]

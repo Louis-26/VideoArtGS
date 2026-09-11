@@ -6,6 +6,7 @@ OUTPUT_DIR="outputs_PAT"
 SAVE_DIR="PAT"
 PAT_MODEL_PTH="particulate/model_ckpt/pat_model.pt"
 PAT_NUM_POINTS=65536
+DEFORM_ITERS=10000
 
 # read the parameters
 while [[ "$#" -gt 0 ]]; do
@@ -17,6 +18,7 @@ while [[ "$#" -gt 0 ]]; do
         --save_dir) SAVE_DIR="$2"; shift ;;
         --PAT_model_pth) PAT_MODEL_PTH="$2"; shift ;;
         --pat_num_points) PAT_NUM_POINTS="$2"; shift ;;
+        --deform_iters) DEFORM_ITERS="$2"; shift ;;
         *) echo "❌ Error: Unknown parameter: $1"; exit 1 ;;
     esac
     shift
@@ -38,11 +40,12 @@ bash scripts/init_deform_PAT.sh \
     --mode "$MODE" \
     --output_dir "$OUTPUT_DIR" \
     --PAT_model_pth "$PAT_MODEL_PTH" \
-    --pat_num_points "$PAT_NUM_POINTS"
+    --pat_num_points "$PAT_NUM_POINTS" \
+    --deform_iters "$DEFORM_ITERS"
 
 # stage 3, jointly train the canonical Gaussian Primitives and the deformation field
 echo "🎬 Stage 3: Jointly train the canonical Gaussian Primitives and the deformation"
-bash scripts/train_PAT.sh \
+DEFORM_INIT_ITER="$DEFORM_ITERS" bash scripts/train_PAT.sh \
     --use_multi "$USE_MULTI" \
     --keep_logs "$KEEP_LOGS" \
     --mode "$MODE" \

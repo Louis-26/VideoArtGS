@@ -29,6 +29,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import torch
+import tqdm
 from plyfile import PlyData, PlyElement
 from pytorch_lightning import seed_everything
 from scipy.optimize import linear_sum_assignment
@@ -36,6 +37,7 @@ from scipy.optimize import linear_sum_assignment
 from scene import DeformModel
 from arguments import ModelParams, PipelineParams, OptimizationParams
 from utils.general_utils import safe_state
+from utils.pointnet2_utils import farthest_point_sample, index_points
 
 from particulate.models import PAT_B
 from particulate.articulation_utils import plucker_to_axis_point
@@ -129,8 +131,16 @@ class PAT_Initializer:
             orig_joint_infos = json.load(f)
         print(f"[PAT] 🌲Successfully loaded {orig_json_path}, containing {len(orig_joint_infos)} slots")
 
-        joint_infos = self.bridge_pat_to_original(
-            orig_joint_infos, pat_results, xyz_world[dec_idx])
+        bridge = self.args.bridge if self.args.bridge != "auto" else self.sidecar.get("bridge", "legacy")
+        print(f"[PAT] Bridge mode: {bridge}")
+        if bridge == "pat_vlm":
+            joint_infos = self.bridge_pat_vlm(orig_joint_infos, pat_results, xyz_world[dec_idx])
+        else:
+            joint_infos = self.bridge_pat_to_original(
+                orig_joint_infos, pat_results, xyz_world[dec_idx])
+        os.makedirs(self.args.model_path, exist_ok=True)
+        with open(os.path.join(self.args.model_path, "joint_infos_pat.json"), "w") as f:
+            json.dump(joint_infos, f, indent=4)
 
         self.save_segmentation_ply(xyz_world[dec_idx], pat_results['part_ids'])
 
@@ -148,10 +158,60 @@ class PAT_Initializer:
         self.deform.init_from_joint_info(joint_infos, init_joint_info=True, init_center=True)
         self.deform.train_setting(self.opt_args)
 
-        # 5. Save the zero-shot initialized deform.pth.
+        # 5. Fit the deformation field to the observed 3D tracks, exactly as
+        #    init_deform.py does for the non-PAT pipeline.
+        #
+        #    PAT only supplies the *initial* joint parameters. The baseline
+        #    pipeline then optimises the deformation field for 10k iterations
+        #    against filtered.npz (track_loss_o2o + track_loss_c2o) and hands
+        #    stage 3 a fitted field; that fitting is what takes the joint_infos
+        #    axes from ~1.9 deg to the 0.34 deg the baseline reports. Saving at
+        #    iteration 1 instead skipped it, so stage 3 started from an unfitted
+        #    field no matter how accurate PAT's axes were -- which is why every
+        #    PAT run so far collapsed on the same scenes.
+        self.fit_deform_to_tracks()
+
         save_path = self.args.model_path
-        print(f"\n[SUCCESS] Pipeline bridge complete! Saving zero-shot weights to: {save_path}")
-        self.deform.save_weights(save_path, iteration=1)
+        print(f"\n[SUCCESS] Pipeline bridge complete! Saving weights to: {save_path}")
+        self.deform.save_weights(save_path, iteration=max(1, self.args.iterations))
+
+    def fit_deform_to_tracks(self):
+        iters = int(self.args.iterations)
+        if iters <= 1:
+            print("[PAT] ⚠️ --iterations <= 1: skipping track fitting (stage 3 will "
+                  "start from an unfitted deformation field)")
+            return
+
+        track = np.load(os.path.join(self.args.source_path, "filtered.npz"))
+        track3d = torch.from_numpy(track["coords"]).float().cuda()
+        vis3d = torch.from_numpy(track["visibs"]).bool().cuda()
+
+        idx = farthest_point_sample(track3d[0:1], 512).repeat(track3d.shape[0], 1)
+        track3d1 = index_points(track3d, idx)
+        vis3d1 = index_points(vis3d.unsqueeze(-1), idx).squeeze(-1)
+
+        self.deform.deform.max_window_size = len(track3d)
+        self.deform.deform.window_size = len(track3d)
+
+        print(f"[PAT] Fitting deformation field to {track3d.shape[1]} tracks x "
+              f"{track3d.shape[0]} frames for {iters} iterations...")
+        ema = 0.0
+        pbar = tqdm.trange(iters, desc="Track fitting")
+        for it in range(1, iters + 1):
+            loss = self.deform.deform.track_loss_o2o(track3d, vis3d)
+            loss += self.deform.deform.track_loss_c2o(track3d1, vis3d1)
+            loss.backward()
+            with torch.no_grad():
+                ema = 0.4 * loss.item() + 0.6 * ema
+                self.deform.optimizer.step()
+                self.deform.optimizer.zero_grad()
+                self.deform.update_learning_rate(it)
+                self.deform.update(max(0, it))
+            pbar.update(1)
+            if it % 10 == 0:
+                pbar.set_postfix({"loss": f"{ema:.6f}"})
+        pbar.close()
+        print(f"[PAT] Track fitting done (final EMA loss {ema:.6f})")
 
     def load_ply_xyz_normals(self, ply_path):
         data = PlyData.read(ply_path).elements[0].data
@@ -308,6 +368,83 @@ class PAT_Initializer:
 
         return updated_joint_infos
 
+    def bridge_pat_vlm(self, orig_joint_infos, pat_results, xyz_dec_world):
+        """
+        Keep the slot LIST of joint_infos.json (count, joint types, order: train.py / render.py
+        rebuild the deformation field from that file, and its types are the VLM's), but take
+        every slot's parameters from PAT:
+          center   = centroid of the PAT part's points (world frame)
+          dist_max = 0.2 x max point-to-centroid distance (moving), 1.0 x for the static slot
+                     (same convention as data_tools/motion_analysis.py)
+          direction / origin = PAT axis (revolute: plucker -> axis point; prismatic: direction)
+        PAT parts are assigned to type-compatible slots greedily by size; a slot without a
+        compatible PAT part keeps its motion-analysis entry (logged).
+        """
+        part_ids = pat_results['part_ids']
+        plucker = pat_results['revolute_plucker']
+        prismatic_axis = pat_results['prismatic_axis']
+        is_rev, is_pris = pat_results['is_part_revolute'], pat_results['is_part_prismatic']
+        N = len(part_ids)
+
+        min_pts = max(64, int(0.002 * N))
+        cands = []
+        for pid in np.unique(part_ids):
+            sel = part_ids == pid
+            n = int(sel.sum())
+            if n < min_pts:
+                continue
+            pts = xyz_dec_world[sel]
+            c = pts.mean(axis=0)
+            typ = ('r' if bool(is_rev[pid]) else '') + ('p' if bool(is_pris[pid]) else '')
+            cands.append(dict(pid=int(pid), n=n, types=typ or 's', centroid=c,
+                              radius=float(np.linalg.norm(pts - c, axis=1).max())))
+        print(f"[PAT Bridge/vlm] {len(cands)} PAT parts (>= {min_pts} pts): " +
+              ", ".join(f"part {c['pid']}:{c['n']}pts/{c['types']}" for c in cands))
+
+        slots = copy.deepcopy(orig_joint_infos)
+        assigned = {}
+        for k, slot in enumerate(slots):
+            t = slot['joint_type']
+            if t not in ('r', 'p'):
+                continue
+            pool = [c for c in cands if t in c['types'] and c['pid'] not in assigned.values()]
+            if not pool:
+                print(f"[PAT Bridge/vlm] ⚠️ slot {k} ('{t}'): no unassigned PAT part of that type; keeping motion-analysis init")
+                continue
+            best = max(pool, key=lambda c: c['n'])
+            assigned[k] = best['pid']
+            slot['center'] = best['centroid'].tolist()
+            slot['dist_max'] = float(best['radius'] * 0.2)
+            old_dir = np.asarray(slot['direction'], dtype=np.float32)
+            if t == 'r':
+                axis, point = plucker_to_axis_point(plucker[best['pid']])
+                slot['direction'] = (self.up_rot.T @ axis).tolist()
+                slot['origin'] = (self.up_rot.T @ (point * self.norm_scale + self.norm_center)).tolist()
+            else:
+                d = prismatic_axis[best['pid']]
+                slot['direction'] = (self.up_rot.T @ (d / (np.linalg.norm(d) + 1e-8))).tolist()
+                slot['origin'] = [0.0, 0.0, 0.0]
+            new_dir = np.asarray(slot['direction'], dtype=np.float32)
+            ang = np.degrees(np.arccos(np.clip(abs(float(old_dir @ new_dir)) /
+                                               (np.linalg.norm(old_dir) * np.linalg.norm(new_dir) + 1e-8), 0, 1)))
+            print(f"[PAT Bridge/vlm] 🚀 slot {k} ('{t}') <- PAT part {best['pid']} ({best['n']} pts, "
+                  f"dist_max {slot['dist_max']:.3f}, angle vs. motion-analysis init {ang:.1f}°)")
+
+        # static slot: everything that is not an assigned moving part
+        static_sel = ~np.isin(part_ids, list(assigned.values()))
+        for k, slot in enumerate(slots):
+            if slot['joint_type'] in ('r', 'p'):
+                continue
+            if static_sel.sum() < min_pts:
+                print(f"[PAT Bridge/vlm] ⚠️ static slot {k}: too few static points; keeping motion-analysis init")
+                continue
+            pts = xyz_dec_world[static_sel]
+            c = pts.mean(axis=0)
+            slot['center'] = c.tolist()
+            slot['dist_max'] = float(np.linalg.norm(pts - c, axis=1).max())
+            print(f"[PAT Bridge/vlm] static slot {k}: {int(static_sel.sum())} pts, dist_max {slot['dist_max']:.3f}")
+        return slots
+
     def save_segmentation_ply(self, xyz, part_ids, filename="pat_segmentation.ply"):
         """Dump a color-coded segmentation point cloud for visual inspection."""
         os.makedirs(self.args.model_path, exist_ok=True)
@@ -338,6 +475,9 @@ if __name__ == "__main__":
                         help="Max joint-center-to-part-centroid distance for an accepted match, as a fraction of the object's longest bbox side")
     parser.add_argument('--PAT_model_pth', type=str, default="particulate/model_ckpt/pat_model.pt",
                         help="Path to the pre-trained PAT model")
+    parser.add_argument('--bridge', type=str, default="auto", choices=["auto", "legacy", "pat_vlm"],
+                        help="auto = checkpoint sidecar (default legacy); legacy = override joint_infos "
+                             "axes only; pat_vlm = PAT centres/extents/axes for the joint_infos slot list")
     parser.add_argument('--extra_feats', type=str, default="auto",
                         help="extra per-point PAT inputs: 'auto' = read the checkpoint sidecar json, "
                              "'' = none, or a comma list of track_geo,track_tapip,vggt")

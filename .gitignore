@@ -10,6 +10,7 @@ debug.py
 *.out
 # *.png
 *.pth
+meeting_*.mp4
 
 # utils
 utils/pointnet_lib/pointnet2.egg-info
@@ -59,3 +60,7 @@ videoartgs.tar.gz
 # logs
 logs/
 time_logs/
+
+
+
+PAT/.pat5_cache

@@ -34,6 +34,8 @@ source $(git rev-parse --show-toplevel)/scripts/scene_set.sh
 parse_mode "$MODE"
 
 model_name=final
+# Must match the iteration init_deform_PAT.sh saved (see --deform_iters there).
+DEFORM_INIT_ITER=${DEFORM_INIT_ITER:-10000}
 seed=0
 
 # ====================================================
@@ -68,7 +70,7 @@ for i in "${!scenes[@]}"; do
             --metric_depth_loss_weight 1.0 \
             --random_bg_color \
             --track_loss_weight 0.5 \
-            --deform_init_iter 1"
+            --deform_init_iter ${DEFORM_INIT_ITER}"
 
     if [ "$USE_MULTI" -eq 1 ]; then
         echo "➡️  [Dispatch] Deploying scene ${scene} to GPU ${GPU_IDX} (background)"

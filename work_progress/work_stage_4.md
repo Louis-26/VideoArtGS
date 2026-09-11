@@ -15,6 +15,7 @@ with
     - use hidden state of TAPIP3D EfficientUpdateFormer as additional input with dimension 384 (track_tapip)
     - use last-layer VGGT4Track features (multi-view averaged, PCA -> 128) as additional input with dimension 128 (vggt)
 - do experiments on PAT with revised input features (xyz + normals + PartField + VGGT + TAPIP3D), summarized [here](../experiment_results/PAT_3/videoartgs_sapien_results.txt)
+- train PAT with 3D segmentation GT (gt/part_*.ply) + articulation GT (gt/mobility_v2.json) and feed segmentation centre/dist_max + axis/origin/type into the deform field (`pat_vlm` bridge), summarized [here](../experiment_results/PAT_4/README.md)
 
 
 # potential next steps
@@ -51,3 +52,12 @@ Chain finished 08:50 EDT (features -> fine-tune -> pipeline), all 20 scenes, no 
 - PAT-level (fine-tune eval, in-train scenes): axis 14.8 -> 1.5 deg, label acc 0.89 -> 0.98. The model reproduces its targets; but the targets are `joint_infos.json` (motion analysis), so the injected axes differ from the original init by only 0.2-2 deg. The final per-scene swings (47648 21.6 -> 0.8 deg; 45194 7.6 -> 20.9 deg; 100481/101284 position 27-30 cm) come from train.py, not from the prior.
 - Gap to orig is structural: PAT pipeline skips the track-loss stage-2 optimisation of the deformation field (`--iterations 1`) and still inits segmentation from joint_infos spheres.
 - Next: fine-tune on real GT axes (gt/mobility_v2.json) to measure the ceiling; run init_deform track optimisation after PAT injection; init segmentation from PAT labels; ablate modalities on the held-out split.
+
+## 2026-09-04 result (outputs_PAT_4, experiment_results/PAT_4/README.md): GT-supervised PAT
+Chain finished 21:00 EDT: fine-tune (`--labels gt --joint_gt gt`, 120 epochs, 20 scenes train = test) -> `particulate/model_ckpt/trained_PAT_gt_model.pt` -> pipeline with the new `pat_vlm` bridge (slot list of `joint_infos.json` kept; centre, dist_max, axis, origin from PAT parts) -> 20/20 scenes, no failures.
+
+- PAT level (5 eval scenes, in train): axis 13.11 -> 0.05 deg, label accuracy 0.915 -> 0.997, revolute origin 0.3-1.5 cm.
+- Deform-field init written by the bridge, all 20 scenes vs GT: axis 0.23 deg mean / 0.04 median (motion-analysis `joint_infos.json`: 2.20 / 1.37), origin 0.36 cm (0.59).
+- Final pipeline: axis 4.139 ± 6.055 deg (PAT_3 3.907, PAT_1 5.228, orig 0.339), position 1.771 ± 5.622 cm (PAT_3 3.765), CD-s 0.311 (best PAT run, orig 0.250), median axis 0.40 deg (PAT_3 0.70).
+- Diagnosis: the error is created inside `train.py`. Scenes 25493 / 30666 / 45194 / 100481 / 101284 / 103811 start at 0.02-0.26 deg and end at 3.5-17 deg (25493: one drawer axis rotated 31 deg during training). Sphere-only segmentation init (`dist_max = 0.2 x radius`, small spheres for drawers) + zero-shot injection without the track-supervised warm-up lets the photometric/track losses move the axes instead of growing the segmentation.
+- Next: init `HybridSeg` from the PAT per-point labels (`init/pat_segmentation.ply`), run the track-loss init_deform optimisation after PAT injection, freeze/regularise PAT axes early in `train.py`, then the held-out split.
