@@ -68,8 +68,13 @@ VideoArtGS + PAT:
 
 - Videoartgs+PAT(already finished✅)
 
-2. Ablation study
+2. Methodology + Experiment in paper
 
-1. vs videoartgs
-2. transformer architecture(without certain features, what will be the performance)
+
+3. Ablation study
+
+	- vs videoartgs
+	- transformer architecture(without certain features, what will be the performance)
+
+
 
