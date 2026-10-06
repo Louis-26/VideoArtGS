@@ -8,12 +8,15 @@ our name: ArtTrans
 
 
 # Reference Work
+
 **- [VideoArtGS: Video-based Articulated Object Reconstruction via 3D Gaussian Splatting](https://videoartgs.github.io/)**
 
 - **[Particulate: Feed-Forward 3D Object Articulation](https://ruiningli.com/particulate)**
+
+
+
+
 ## Video
-
-
 - 1. [REACTO: Reconstructing Articulated Objects from a Single Video](https://chaoyuesong.github.io/REACTO/)
 
 - 2. [iTACO: Interactable Digital Twins of Articulated Objects from Casually Captured RGBD Videos](https://3dlg-hcvc.github.io/video2articulation/)
@@ -30,3 +33,6 @@ our name: ArtTrans
 - 9. [ArticulatedGS: Self-supervised Digital Twin Modeling of Articulated Objects using 3D Gaussian Splatting](https://guojunfu-tech.github.io/articulatedGS-io/)
 - 10. [FreeArtGS: Articulated Gaussian Splatting Under Free-moving Scenario](https://freeartgs.github.io/)
 - 11. [Articulation in Motion: Prior-free Part Mobility Analysis for Articulated Objects By Dynamic-Static Disentanglemen](https://haoai-1997.github.io/AiM/)
+
+## Baselines
+- 12. [Robot See Robot Do: Imitating Articulated Object Manipulation with Monocular 4D Reconstruction](https://robot-see-robot-do.github.io/)

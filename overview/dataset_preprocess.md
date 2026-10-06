@@ -1,22 +1,26 @@
 # Dataset Preprocess
-## videoartgs sapien 
+
+## videoartgs sapien
+
 These steps are already finished before packed into the dataset on HF. However, it is useful to rerun all of these steps to better understand the data preprocessing pipeline.
 
 Just for illustration purpose, create a new folder called `new_data` and copy the first scene of dataset into this folder
 
 ### sub-step 1
+
 - Input
-    - multiview monocular video frames ${I_t}_{t=1}^T$ for each scene, as `images`
-    - depth images ${D_t}_{t=1}^T$ for each scene, as `depth`
-    - camera poses ${P_t}_{t=1}^T$ for each scene, as `camera.json`
-- Output 
-    - fused point cloud for each scene, as `point_cloud.ply`
-    - detailed transformation matrix frame-by-frame for each scene, as `transforms.json`
 
+  - multiview monocular video frames $\{I_t\}_{t=1}^T$ for each scene, as `images`
+  - depth images $\{D_t\}_{t=1}^T$ for each scene, as `depth`
+  - camera poses $\{P_t\}_{t=1}^T$ for each scene, as `camera.json`
+- Output
+
+  - fused point cloud for each scene, as `point_cloud.ply`
+  - detailed transformation matrix frame-by-frame for each scene, as `transforms.json`
 - Purpose
-Derive `point_cloud.ply`, `transforms.json` and `vis_depth` for each scene given images, depth images and camera poses
-
+  Derive `point_cloud.ply`, `transforms.json` and `vis_depth` for each scene given images, depth images and camera poses
 - Scripts
+
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 conda activate videoartgs
@@ -24,17 +28,19 @@ python data_tools/process_sapien.py --data_path ./new_data/videoartgs/sapien
 ```
 
 ### sub-step 2
+
 - Input
-    - multiview monocular video frames ${I_t}_{t=1}^T$ for each scene, as `images`
+
+  - multiview monocular video frames $\{I_t\}_{t=1}^T$ for each scene, as `images`
 - Output
-    - joint information for each scene, as `joint_infos_vlm.json`   
 
+  - joint information for each scene, as `joint_infos_vlm.json`
 - Purpose
-Derive `joint_infos_vlm.json` from the multiview monocular video frames for each scene using OpenAI API, gpt-4o
-
+  Derive `joint_infos_vlm.json` from the multiview monocular video frames for each scene using OpenAI API, gpt-4o
 - Scripts
-Firstly, set up the OpenAI API key in `.env` file (a line `OPENAI_API_KEY=sk-...` at repo root)
-Then run the commands following(costing 2¢ per scene)
+  Firstly, set up the OpenAI API key in `.env` file (a line `OPENAI_API_KEY=sk-...` at repo root)
+  Then run the commands following(costing 2¢ per scene)
+
 ```bash
 # export every variable defined in .env into the current shell
 set -a; source .env; set +a
@@ -49,21 +55,22 @@ done
 ```
 
 ### sub-step 3
+
 - Input
-    - multiview monocular video frames ${I_t}_{t=1}^T$ for each scene, as `images`
-    - depth images ${D_t}_{t=1}^T$ for each scene, as `depth`
-    - transformation matrices frame-by-frame for each scene, as `transforms.json`
-    - joint information from VLM for each scene, as `joint_infos_vlm.json`
+
+  - multiview monocular video frames $\{I_t\}_{t=1}^T$ for each scene, as `images`
+  - depth images $\{D_t\}_{t=1}^T$ for each scene, as `depth`
+  - transformation matrices frame-by-frame for each scene, as `transforms.json`
+  - joint information from VLM for each scene, as `joint_infos_vlm.json`
 - Output
-    - 3D tracking trajectories(7700 coordinates+visibility) frame-by-frame for each scene, as `filtered.npz`
-    - joint information for each scene, as `joint_infos.json`
 
+  - 3D tracking trajectories(7700 coordinates+visibility) frame-by-frame for each scene, as `filtered.npz`
+  - joint information for each scene, as `joint_infos.json`
 - Purpose
-Derive `filtered.npz` and `joint_infos.json` for each scene
-
-
+  Derive `filtered.npz` and `joint_infos.json` for each scene
 - Scripts
-install TAPIP3D and download the TAPIP3D checkpoint model
+  install TAPIP3D and download the TAPIP3D checkpoint model
+
 ```bash
 mkdir -p third_party/TAPIP3D/checkpoints
 wget -O third_party/TAPIP3D/checkpoints/tapip3d_final.pth \
@@ -84,20 +91,25 @@ done
 ```
 
 After all sub steps, use the following to verify.
+
 ```bash
 python debug/compare_files_vag_sp.py
 ```
 
 ## videoartgs realscan
+
 ### sub-step 0
+
 This step is usually omitted as the `images` folder is already provided
+
 - Input
-    - raw scene video(end with .mp4)
+  - raw scene video(end with .mp4)
 - Output
-    - multiview monocular video frames ${I_t}_{t=1}^T$ for each scene, as `images`
+  - multiview monocular video frames $\{I_t\}_{t=1}^T$ for each scene, as `images`
 - Purpose
-    Extract multiview monocular video frames from the raw scene video.
+  Extract multiview monocular video frames from the raw scene video.
 - Scripts
+
 ```bash
 # extract frames from the raw scene video, swap subset into `sapien` or `realscan`, and swap 168 into the actual scene name
 for video_path in ./new_data/videos/*.mp4; do
@@ -112,14 +124,16 @@ done
 ```
 
 ### sub-step 1
+
 - Input
-    - multiview monocular video frames ${I_t}_{t=1}^T$ for each scene, as `images`
+  - multiview monocular video frames $\{I_t\}_{t=1}^T$ for each scene, as `images`
 - Output
-    - st2_result.npz for each scene, as `st2_result.npz`
+  - st2_result.npz for each scene, as `st2_result.npz`
 - Purpose
-Derive `st2_result.npz` for each scene given images using SpatialTrackerV2, storing the information of depth, intrinsics, extrinsics, and depth pixel confidence
+  Derive `st2_result.npz` for each scene given images using SpatialTrackerV2, storing the information of depth, intrinsics, extrinsics, and depth pixel confidence
 - Scripts
-Firstly, create the conda environment and install the dependencies
+  Firstly, create the conda environment and install the dependencies
+
 ```bash
 conda create -n st2 python=3.11 -y
 conda activate st2
@@ -130,7 +144,9 @@ python -m pip install \
     --index-url https://download.pytorch.org/whl/cu124
 pip install -r third_party/SpatialTrackerV2/requirements.txt
 ```
+
 Then run the spatial tracker for each scene
+
 ```bash
 # run the spatial tracker
 conda activate st2
@@ -146,18 +162,19 @@ done
 python third_party/SpatialTrackerV2/tapip3d_viz.py new_data/videoartgs/realscan/microwave_ego/st2_result.npz
 ```
 
-
 ### sub-step 2
+
 - Input
-    - multiview monocular video frames ${I_t}_{t=1}^T$ for each scene, as `images`
+  - multiview monocular video frames ${I_t}_{t=1}^T$ for each scene, as `images`
 - Output
-    - masks for each scene, as `masks.npy`
-    - consolidated dataset as `data.npz`
-    - initialized point cloud for each scene, as `point_cloud.ply`
+  - masks for each scene, as `masks.npy`
+  - consolidated dataset as `data.npz`
+  - initialized point cloud for each scene, as `point_cloud.ply`
 - Purpose
-    - Derive masks and consolidated dataset for each scene from SAM2
+  - Derive masks and consolidated dataset for each scene from SAM2
 - Scripts
-Configure the sam2 environment
+  Configure the sam2 environment
+
 ```bash
 # download the SAM2 checkpoint for sam2.1_hiera_large.pt
 cd "$(git rev-parse --show-toplevel)/third_party"
@@ -184,6 +201,7 @@ find . -maxdepth 1 ! -name "sam2.1_hiera_large.pt" ! -name "download_ckpts.sh" !
 ```
 
 Complete foreground mask segmentation and run the spatial tracker for each scene
+
 ```bash
 conda activate sam2
 # foreground mask segmentation
@@ -212,13 +230,15 @@ done
 ```
 
 ### sub-step 3
+
 - Input
-    - multiview monocular video frames ${I_t}_{t=1}^T$ for each scene, as `images`
+  - multiview monocular video frames ${I_t}_{t=1}^T$ for each scene, as `images`
 - Output
-    - coarse joint information from VLM for each scene, as `joint_infos_vlm.json`
+  - coarse joint information from VLM for each scene, as `joint_infos_vlm.json`
 - Purpose
-Derive `joint_infos_vlm.json` from the multiview monocular video frames for each scene using OpenAI API, gpt-4o
+  Derive `joint_infos_vlm.json` from the multiview monocular video frames for each scene using OpenAI API, gpt-4o
 - Scripts
+
 ```bash
 # export every variable defined in .env into the current shell
 set -a; source .env; set +a
@@ -233,18 +253,21 @@ done
 ```
 
 ### sub-step 4
-- Input
-    - multiview monocular video frames ${I_t}_{t=1}^T$ for each scene, as `images`
-    - depth images ${D_t}_{t=1}^T$ for each scene, as `depth`
-    - joint information from VLM for each scene, as `joint_infos_vlm.json`
 
+- Input
+
+  - multiview monocular video frames ${I_t}_{t=1}^T$ for each scene, as `images`
+  - depth images ${D_t}_{t=1}^T$ for each scene, as `depth`
+  - joint information from VLM for each scene, as `joint_infos_vlm.json`
 - Output
-    - 3D tracking trajectories(7700 coordinates+visibility) frame-by-frame for each scene, as `filtered.npz`
-    - joint information for each scene, as `joint_infos.json`
+
+  - 3D tracking trajectories(7700 coordinates+visibility) frame-by-frame for each scene, as `filtered.npz`
+  - joint information for each scene, as `joint_infos.json`
 - Purpose
-Derive `filtered.npz` and `joint_infos.json` for each scene
+  Derive `filtered.npz` and `joint_infos.json` for each scene
 - Scripts
-Generate the 3D tracking trajectories and joint information for each scene using TAPIP3D
+  Generate the 3D tracking trajectories and joint information for each scene using TAPIP3D
+
 ```bash
 for scene in new_data/videoartgs/realscan/*/; do
     obj=$(basename "$scene")
@@ -256,19 +279,25 @@ for scene in new_data/videoartgs/realscan/*/; do
     # rm -f "${scene}${obj}".n*.npz "${scene}filtered_vis.npz"
 done
 ```
+
 Visualization
+
 ```bash
 python third_party/TAPIP3D/visualize.py ./new_data/videoartgs/realscan/microwave_ego/filtered_vis.npz
 ```
 
 After all sub steps, use the following to verify.
+
 ```bash
 python debug/compare_files_vag_rs.py
 ```
 
 ## v2a sapien
+
 ### sub-step 0
+
 Download the video2articulation dataset from HF
+
 ```bash
 mkdir -p raw_data/video2articulation
 hf auth login
@@ -287,6 +316,7 @@ pv origin_data.tar.gz | tar -xz
 ```
 
 Download PartNet-Mobility dataset from HF
+
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 
@@ -297,9 +327,7 @@ hf download \
     --repo-type dataset \
     --local-dir ./raw_data/partnet-mobility
 ```
+
 pending for approval
 
 ### sub-step 1
-
-
-

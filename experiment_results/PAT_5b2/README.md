@@ -1,0 +1,1 @@
+We utilized 15 objects as training set and the rest 5 objects as the test set to train the articulate transformer model.

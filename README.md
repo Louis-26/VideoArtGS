@@ -1,30 +1,30 @@
-# VideoArtGS with PAT
-In this branch, we will integrate Part Articulation Transformer from [PARTICULATE](https://arxiv.org/pdf/2512.11798)
-
+# ArtTrans: Merge Transformer Into 3D Articulated Object Reconstruction From Videos
+Inherit from Part Articulation Transformer from [PARTICULATE](https://arxiv.org/pdf/2512.11798), we merge the transformer into the original VideoArtGS pipeline, and replace the hand-crafted motion analysis with a feed-forward transformer to predict the articulation axes/origins prior as **ArtTrans** pipeline.
+![overview](assets/pipeline/ArtTrans_pipeline.png)
 ## Architecture
-Input multi-frames --> Canonical gaussians --> Part Articulation Transformer --> Deformation field --> Output multi-frames
+Input multi-frames --> Canonical gaussians --> Art Transformer --> Deformation field --> Output rendered video frames and joint state estimation
 
 ## Advantage over original VideoArtGS
-- articulation axes/origins come from a feed-forward transformer instead of the hand-crafted motion analysis; note that the current pipeline still reads `joint_infos.json` (slot count / types / centers) and, in stage 3, `filtered.npz` (track loss), both produced by the TAPIP3D preprocessing
-- (2026-09) the TAPIP3D tracks and VGGT image features can additionally be fed to PAT as extra per-point inputs, see "PAT Architecture" below
+- articulation parameters (axes/origins) prior come from a feed-forward transformer instead of the hand-crafted motion analysis; transforming the original architecture from a non-learning based method into a learning-based method
 
 ## Advantage over Particulate
-- utilize multiview frames instead of input mesh, causing more efficient preprocessing steps
+- replace the input 3D mesh with the multiview frames, extending the application of 3D articulated object reconstruction from videos 
 
 # VideoArtGS pipeline
-More detailed description can be found in [VideoArtGS pipeline](./overview/V_methodology.md), with flow chart available [here](https://www.figma.com/design/7dDTR57ZKdyMfOiuJXp0s8/VideoArtGS-PAT-procedure-graph?node-id=13-172&t=a1yyM5Rf8iqJX3WM-1)
+More detailed implementation and execution description can be found in [VideoArtGS pipeline](./overview/VideoArtGS_methodology.md), with flow chart available [here](https://www.figma.com/design/7dDTR57ZKdyMfOiuJXp0s8/VideoArtGS-PAT-procedure-graph?node-id=13-172&t=a1yyM5Rf8iqJX3WM-1)
+
 ## step 1
 use `bash scripts/init_cano.sh 1` 
 
 Given multiview frames, transform into canonical gaussians in the form of point cloud
 
-Input
+### Input
 - /DATASET/images/, multiview frames(250 images from different perspectives)
 - /DATASET/depth/, depth maps for each frame
-- /DATASET/transforms.json, give the camera pose and each frame's intrinsic parameters
+- /DATASET/transforms.json, camera pose and each frame's intrinsic parameters
 - /DATASET/point_cloud.ply, ground truth point cloud
 
-Output
+### Output
 - 3D gaussians after 20000 iterations with number N(N=42458 for scene `168`), for each gaussian, we have
     - position $\mu \in \mathbb{R}^3$
     - rotation $\q \in \mathbb{R}^4$
@@ -39,25 +39,21 @@ visualization:
 
 
 ## Step 2
-
-Command
-`bash scripts/init_deform.sh 1`
-
-Objective
+### Objective
 This stage trains a coordinate-based Multi-Layer Perceptron (MLP) to learn the kinematic priors and the continuous deformation field of the dynamic scene. Instead of updating the canonical Gaussian attributes, it establishes a mapping network that outputs the spatial variations—specifically, the translation offset ($\delta \mu \in \mathbb{R}^3$) and rotation offset ($\delta r \in \mathbb{R}^4$)—for each Gaussian primitive given a specific timestamp $t$.
 
-Key Modules
+### Key Modules
 *   **Segmentation Module (`HybridSeg`)**: Computes the part-belonging probabilities (Part Masks) for each Gaussian primitive. It implicitly learns to group points into rigid kinematic parts without explicit 3D annotations.
 *   **Articulation Module (`ArticulationModel`)**: Models the mechanical skeleton constraints, outputting the articulation parameters to drive the grouped primitives.
 
-Inputs
+### Input
 *   `DATASET/joint_infos.json`: the json file containing the joint type, axis and pivot for each part
 *   `DATASET/filtered.npz`: Sparse 3D motion trajectories acting as physical tracking supervision. 
     - coords: dimension (100, 7700, 3), `100` frames, `7700` tracked points, each with 3D coordinates.
     - visibs: dimension (100, 7700), `100` frames, `7700` tracked points, value $M_{xy}$ as True/False indicating whether the point `y` is visible in the frame `x`.
 
-Outputs
-*   `deform.pth`: The optimized neural network weights serving as a highly compressed physical engine. including
+### Output
+- `deform.pth`: The optimized neural network weights serving as a highly compressed physical engine. including
     - segmentation model
         - center, dimension (2,3), centers of each part
         - logscale, dimension (2,3), log scale of each part
@@ -76,74 +72,73 @@ Outputs
 ---
 
 ## Step 3
-
-Command
-`bash scripts/train.sh 1`
-
-Jointly optimize deformation field and canonical gaussians from multiview frames and tracking trajectories.
+### Objective
+Jointly optimize **deformation field \mathcal{F}** and **canonical 3D gaussians \mathcal{G^c}** from multiview frames and tracking trajectories.
 
 
-Inputs 
+### Input 
 - `OUTPUT/point_cloud.ply`, point cloud from step 1
 - `OUTPUT/deform.pth`, deformation weights from step 2
 - `DATASET/filtered.npz`, sparse 3D motion trajectories acting as physical tracking supervision. 
     - coords: dimension (100, 7700, 3), `100` frames, `7700` tracked points, each with 3D coordinates.
     - visibs: dimension (100, 7700), `100` frames, `7700` tracked points, value $M_{xy}$ as True/False indicating whether the point `y` is visible in the frame `x`.
 
-Outputs
+### Output
 - updated `point_cloud.ply`, refined canonical gaussians after joint optimization
 - updated `deform.pth`, refined deformation weights after joint optimization
+- output point cloud [point cloud after training](./assets/images/pc_after_train.png)
 
-
-
-output point cloud
-[point cloud after training](./assets/images/pc_after_train.png)
 ---
 
 ## Step 4
+### Objective
+Render the multiview frames from the optimized canonical gaussians and deformation field
 
-Command
-`bash scripts/render.sh 1`
-
-Input
+### Input
 - `point_cloud.ply`: trained canonical gaussians
 - `deform.pth`: trained deform field
 
 
-Output
-- ground truth multiview images
-- depth maps
-- `joint_info.json`: The final optimized 3D physical topology (optimized axes, origins, and segmentation centers).
-- `joint_value.npy`: The predicted temporal dynamics matrix of shape `[K_joints, N_frames]`, containing the rotation angles $\theta$ for each joint across the video sequence.
+### Output
+- predicted multiview images
+- predicted depth maps
+- predicted `joint_info.json`: The final optimized 3D physical topology (optimized axes, origins, and part centers).
+- predicted `joint_value.npy`: The predicted dynamic frame matrix of shape `[K_joints+1, N_dynamic_frames]`, containing the *rotation angles $\theta$* or *prismatic displacements $x$*.
 
 
 ## step 5
-Quantitative evaluation of the modeled articulated object, assessing both the geometric fidelity of the reconstructed 3D shape and the precision of the kinematic parameter estimation.
+Quantitative evaluation of the modeled articulated object, assessing 
+- geometric fidelity of the reconstructed 3D shape from **CD loss**
+- precision of the articulation parameter estimation as axis/position mean error and standard deviation
+- closeness between predicted joint states per dynamic frame and the ground truth
 
-Input:
+
+
+### Input
 - ground truth axis direction, position and point cloud
 - predicted axis direction, position and point cloud
 
-Output: results.csv including
+### Output
 - axis error
 - position error
 - chamfer distance for whole point cloud
 - chamfer distance for moving part point cloud
 - chamfer distance for static part point cloud
 
+
 ## step 6(optional)
-Compute gif, mp4 and mesh for the articulated scene 
+Compute gif, mp4 and mesh for the articulated scene qualitative visualization 
 
 
-# VideoArtGS+PAT pipeline
-More detailed description can be found in [VideoArtGS+PAT pipeline](./overview/V_PAT_methodology.md)
+# ArtTrans pipeline
+More detailed implementation and reproduction description can be found in [ArtTrans pipeline](./overview/ArtTrans_methodology.md)
+
 ## step 1
+### Objective
 This step is consistent with the original VideoArtGS pipeline, where we initialize the canonical Gaussian representation of the scene.
-```bash
-cd "$(git rev-parse --show-toplevel)"
-bash scripts/init_cano.sh 1 
-```
+
 After that, we get the canonical gaussians, including position, rotation, scale, opacity, SH feature and part segmentation feature. The output is stored in `point_cloud.ply`.
+
 Specifically, the dimension for each gaussian primitive is 75, including
 - position $\mu \in \mathbb{R}^3$
 - rotation $\q \in \mathbb{R}^4$
@@ -152,24 +147,19 @@ Specifically, the dimension for each gaussian primitive is 75, including
 - part segmentation feature $\f \in \mathbb{R}^{16}$
 - SH feature $\f \in \mathbb{R}^{48}$
 
-Note: PAT does **not** consume these Gaussian attributes. `PAT/init_deform_PAT.py` loads the dataset's fused point cloud `DATASET/point_cloud.ply` (xyz + normals) and computes 448-dim PartField features for it; see "PAT Architecture" below for the exact input.
-
 
 ## Step 2: Part Articulation Transformer (PAT) Inference
-```bash
-cd "$(git rev-parse --show-toplevel)"
-bash scripts/init_deform_PAT.sh 1 
-```
-Objective: Infer kinematic structure directly from the 3D point cloud, replacing motion tracking and joint infos priors.
+### Objective
+Infer articulation parameters prior directly from the 3D point cloud, replacing motion tracking and joint infos priors.
 
-Input
+### Input
 - `DATASET/point_cloud.ply` (fused depth point cloud, world frame): xyz (3) + normals (3)
 - PartField features computed on the fly: 448 per point
 - optional extra inputs (read from the checkpoint sidecar `<ckpt>.json`, override with `--extra_feats`):
   `track_geo` (56, from `filtered.npz`), `track_tapip` (384, `pat_extra/tapip3d_feats.npz`), `vggt` (128, `pat_extra/vggt128.npy`)
 - `DATASET/joint_infos.json`: slot count, joint types and part centers (PAT overrides direction/origin of the matched slots)
 
-Output
+### Output
 - deform.pth, with exactly the same structure as the original VideoArtGS pipeline, including segmentation model and articulation model.
 
 
@@ -255,3 +245,8 @@ time cost for each step:
 - step 2: 12 seconds per scene for PAT integration, A100-40GB-PCle
 - step 3: train, 15 minutes per scene, 20000 iterations, A100-40GB-PCle
 - step 4: render, 3 minutes per scene, 250 frames, A100-40GB-PCle
+
+# Work record:
+- paper draft: https://www.overleaf.com/read/ycpyfxkvqvbf#afcf35
+- google slide: https://docs.google.com/presentation/d/1YcpoI45y0KWuTI1eML8tbts4UegyBW2T5pQ-FR4elko/edit?usp=sharing
+- pipeline flow chart: https://www.figma.com/design/7dDTR57ZKdyMfOiuJXp0s8/ArtTrans-pipeline-graph?node-id=0-1&t=08qbCRizHWf0gGO3-1
