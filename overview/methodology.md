@@ -52,27 +52,7 @@ Corresponding scripts
 - [init_cano.sh](../scripts/init_cano.sh)
 - [SLURM init_cano.sh](../SLURM_execution/SLURM_script/init_cano.sh)
 
-Input: 
-- **First M static** multiview monocular video frames ${I_t}_{t=1}^T$, and corresponding depth images
-- ground truth camera poses $P$, (extrinsic matrix $ E = P^{-1} \in \mathbb{R}^{4 \times 4}$) and camera intrinsic matrix $K \in \mathbb{R}^{3 \times 3}$ for each selected frame
-- initial fused point cloud for the object from data preprocessing steps, with positions and RGB colors for each point
-
-
-
-Model/Parameters:
-- 3D Gaussian Primitives to be trained, with updated parameters including
-    - position $\mu \in \mathbb{R}^{3}$
-    - rotation $\r \in \mathbb{R}^{4}$
-    - scale $s \in \mathbb{R}^{3}$
-    - opacity $\sigma \in \mathbb{R}$
-    - SH feature $h \in \mathbb{R}^{48}$
-
-Training:
-Optimize 3D Gaussian Primitives to reconstruct the static canonical object representation.
-
-Output:
-- Trained 3D **Canonical** Gaussian Primitives, $\mathcal{G}^c=\{G_i^c \}_{i=1}^N$
-- optimized canonical Gaussian model checkpoints(.ply) saved in different iterations(5000, 10000, 15000, 20000)
+[detailed methodology](./model.md#gaussian-primitives)
 
 Execution:
 - SLURM

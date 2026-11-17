@@ -47,6 +47,9 @@ cd third_party/TAPIP3D/third_party/pointops2
 LIBRARY_PATH=$CONDA_PREFIX/lib:$LIBRARY_PATH python setup.py install
 cd ../../../..
 
+cd $(git rev-parse --show-toplevel)
+git clone https://github.com/nv-tlabs/PartField.git third_party/PartField
+rm -rf third_party/PartField/.git
 
 # notice: use gcc>10, cuda 12.5
 # gslpat

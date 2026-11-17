@@ -58,26 +58,17 @@ It is used in `realscan` dataset when image mask is not available.
 - Output:
   - Per-point geometric part feature tokens: $\mathbf{F}_{pf} \in \mathbb{R}^{N_p \times 448}$
 
-# Gaussian Primitives
-
-- Input: 
-  - **First M static** multiview monocular video frames $\{I_t\}_{t=1}^M \in \mathbb{R}^{M \times H \times W \times 3}$
-  - Corresponding monocular depth maps $\{D_t\}_{t=1}^M \in \mathbb{R}^{M \times H \times W}$ 
-  - 3D initial fused point cloud $\mathcal{P} \in \mathbb{R}^{N_{init} \times 3}$ with **first M static** video frames 
-  - Camera poses(GT for `sapien`, VGGT estimate for `realscan`) $\{P_t\}_{t=1}^M$, (extrinsic matrix $ E = P^{-1} \in \mathbb{R}^{4 \times 4}$) for each selected frame 
-  - Camera intrinsics(GT for `sapien`, VGGT estimate for `realscan`) $K \in \mathbb{R}^{3 \times 3}$
-
-- Output
-  - Canonical 3D Gaussian primitives $\mathcal{G} = \{g_i\}_{i=1}^N$
-    - $\mu \in \mathbb{R}^{3}$
-    - rotation $q \in \mathbb{R}^{4}$
-    - scale $s \in \mathbb{R}^{3}$
-    - opacity $\alpha \in [0, 1]$
-    - Spherical Harmonics feature $h \in \mathbb{R}^{48}$
-    - Part Segmentation feature $f \in \mathbb{R}^{16}$
-
 
 # Deformation Field 
+Prior Injection:
+- part center $c_k$, with $k=1, \ldots, K$, fed into segmentation model
+- part scale $s_k$, with $k=1, \ldots, K$, fed into segmentation model
+- articulation type $tau_k$, with $k=2, \ldots, K$, fed into articulation model
+- articulation axis $d_k$, with $k=2, \ldots, K$, fed into articulation model
+- articulation origin $o_k$, with $k=2, \ldots, K$, fed into articulation model
+
+
+
 
 ## Progressive Band Hash Grid
 
@@ -104,7 +95,7 @@ Multi-resolution hash grid based on tinycudann
     where $\mathbf{e} \in \mathbb{R}^{N \times 24}$ is the raw trilinearly interpolated feature from the hash grid.
 
 - Output
-  - $F_{grid} = [\mathbf{f}^{(0)}, \mathbf{f}^{(1)}, \ldots, \mathbf{f}^{(n_1-1)}] \in \mathbb{R}^{N \times 24}$
+  - $F_{grid} = [\mathbf{f}^{(0)}, \mathbf{f}^{(1)}, \ldots, \mathbf{f}^{(n_1-1)}] \in \mathbb{R}^{N \times 24}$, with $\mathbf{f}^{(i)} \in \mathbb{R}^{N \times 2}$ 
 
 
 
@@ -130,19 +121,16 @@ The input is concantenated by $X_c$ and $F_{grid}$:
 
 ### dynamic part MLP
 - Input 
+  - centers $c_k \in \mathbb{R}^3$
+  - scales $s_k \in \mathbb{R}^3$
+  - quaternions $r_k \in \mathbb{R}^4$
+
+- Computation
 The input is concantenated by $X_c, F_{grid}, d_k, \lVert d_k \rVert$
   - Gaussian primitive coordinates $X_c \in \mathbb{R}^{N \times 3}$
   - multi-resolution spatial features $F_{grid} \in \mathbb{R}^{N \times 24}$ from the hash grid
   - relative coordinate to the part center $d_k=\frac{R(r_k)(X_c-c_k)}{S_k} \in \mathbb{R}^{N \times 3}$ for each part $k=1,...,K-1$
   - distance to the part center $\lVert d_k \rVert\in \mathbb{R}^{N}$ for each part $k=1,...,K-1$
-
-
-
-- Parameters
-  - centers $c_k \in \mathbb{R}^3$
-  - scales $s_k \in \mathbb{R}^3$
-  - quaternions $r_k \in \mathbb{R}^4$
-
 
 - Structure
 dim=4(K-1)+27

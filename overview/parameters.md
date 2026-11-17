@@ -1,9 +1,10 @@
 # Constant/Non-trainable parameters
 
-- T: number of frames extracted in a video(total number of frames for the given object)
-- t: frame index, or time index with different ranges
-- M: number of canonical static multiview frames
-- N: number of gaussian primitives
+- $T$: number of frames extracted in a video(total number of frames for the given object)
+- $M$: number of canonical static multiview frames
+- $N$: number of Gaussian Primitives
+- $i$: gaussian primitive index
+- $t$: frame index, or time index with different ranges
 
 # Estimated parameters
 
@@ -13,7 +14,7 @@
 
 number of parts in an articulated object, usually containing $1$ static part and $K-1$ movable parts.
 
-- notation: K
+- notation: $K$
 - ground truth: provided from `data/sapien/*/gt/mobility_v2.json`
 - estimation: directly read from `joint_infos_vlm.json` inferred by VLM
 - loss function: no loss function, we usually expect this to be correct, otherwise there is big problem
@@ -36,7 +37,7 @@ assignment of each gaussian primitives, as a part id
 
 part center for each part
 
-- notation: $p_k \in \mathbb{R}^3$, for $k \in 1, \cdots, K$
+- notation: $c_k \in \mathbb{R}^3$, for $k \in 1, \cdots, K$
 - ground truth: computed from `part_x.ply` in `data/sapien/*/gt/`
 - estimation
   - VideoArtGS: prior derived from the motion analysis, optimized through downstream refinement

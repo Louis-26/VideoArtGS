@@ -22,13 +22,14 @@ data/
 ztest/
 
 # third party
-third_party/TAPIP3D/third_party/pointnet_lib/pointnet2.egg-info
-third_party/TAPIP3D/third_party/pointnet_lib/dist
-third_party/TAPIP3D/third_party/pointnet_lib/build
-third_party/TAPIP3D/third_party/pointops2/pointops2.egg-info
-third_party/TAPIP3D/third_party/pointops2/build
-third_party/TAPIP3D/third_party/pointops2/dist
-third_party/sam2
+third_party
+# third_party/TAPIP3D/third_party/pointnet_lib/pointnet2.egg-info
+# third_party/TAPIP3D/third_party/pointnet_lib/dist
+# third_party/TAPIP3D/third_party/pointnet_lib/build
+# third_party/TAPIP3D/third_party/pointops2/pointops2.egg-info
+# third_party/TAPIP3D/third_party/pointops2/build
+# third_party/TAPIP3D/third_party/pointops2/dist
+# third_party/sam2
 
 # datasets
 new_data/

@@ -13,7 +13,7 @@ import sys
 
 import torch
 
-_PARTFIELD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "PartField"))
+_PARTFIELD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "third_party", "PartField"))
 sys.path.append(_PARTFIELD_DIR)
 from partfield.model.PVCNN.encoder_pc import sample_triplane_feat
 from partfield.model_trainer_pvcnn_only_demo import Model
